@@ -10,7 +10,7 @@ readme = "README.md"
 requires-python = ">=3.12"
 license = {text = "MIT"}
 authors = [
-    {name = "mod", email = "your-email@example.com"},
+    {name = "Adrian Paredez", email = "contact@paredez.dev"},
 ]
 keywords = ["augmentation", "machine-learning", "data", "reproducible", "deterministic"]
 classifiers = [
@@ -25,16 +25,16 @@ classifiers = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/yourusername/dpa"
-Documentation = "https://github.com/yourusername/dpa/tree/main/docs"
-Repository = "https://github.com/yourusername/dpa.git"
-Issues = "https://github.com/yourusername/dpa/issues"
+Homepage = "https://github.com/AdrianParedez/dpa"
+Documentation = "https://github.com/AdrianParedez/dpa/tree/main/docs"
+Repository = "https://github.com/AdrianParedez/dpa.git"
+Issues = "https://github.com/AdrianParedez/dpa/issues"
 
 [tool.setuptools]
-py-modules = ["dpa"]
+packages = ["src"]
 
 [tool.pytest.ini_options]
-testpaths = ["test_dpa.py"]
+testpaths = ["tests"]
 python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
@@ -42,7 +42,7 @@ addopts = "-v --strict-markers"
 
 [tool.ruff]
 line-length = 100
-target-version = "py38"
+target-version = "py312"
 
 [tool.ruff.lint]
 select = [

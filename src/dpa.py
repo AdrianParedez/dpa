@@ -4,20 +4,20 @@ import random
 import statistics
 import sys
 from dataclasses import asdict, dataclass
-from functools import lru_cache
+from functools import cache
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 
 @dataclass
 class AugmentationConfig:
     """Configuration for augmentation parameters."""
 
-    rotation_range: Tuple[float, float] = (-30, 30)
-    brightness_range: Tuple[float, float] = (0.8, 1.2)
-    noise_range: Tuple[float, float] = (0, 0.1)
-    scale_range: Tuple[float, float] = (0.8, 1.2)
-    contrast_range: Tuple[float, float] = (0.7, 1.3)
+    rotation_range: tuple[float, float] = (-30, 30)
+    brightness_range: tuple[float, float] = (0.8, 1.2)
+    noise_range: tuple[float, float] = (0, 0.1)
+    scale_range: tuple[float, float] = (0.8, 1.2)
+    contrast_range: tuple[float, float] = (0.7, 1.3)
     augmentation_depth: int = 10
 
     def __post_init__(self) -> None:
@@ -61,7 +61,7 @@ PRESETS = {
 }
 
 
-@lru_cache(maxsize=None)
+@cache
 def fib(n: int) -> int:
     """Compute nth Fibonacci number with memoization."""
     if n < 0:
@@ -106,8 +106,8 @@ def gen_augmentation_seed(seed_id: int, augmentation_depth: int = 10) -> str:
 
 
 def gen_augmentation_params(
-    seed_id: int, config: Optional[AugmentationConfig] = None
-) -> Dict[str, Any]:
+    seed_id: int, config: AugmentationConfig | None = None
+) -> dict[str, Any]:
     """
     Generate deterministic augmentation parameters.
 
@@ -142,8 +142,8 @@ def gen_augmentation_params(
 
 
 def compute_statistics(
-    params_list: List[Dict[str, Any]],
-) -> Dict[str, Dict[str, float]]:
+    params_list: list[dict[str, Any]],
+) -> dict[str, dict[str, float]]:
     """
     Compute statistics (mean, std, min, max) for augmentation parameters.
 
@@ -170,9 +170,9 @@ def compute_statistics(
 
 
 def save_augmentation_chain(
-    params_list: List[Dict[str, Any]],
+    params_list: list[dict[str, Any]],
     filepath: str,
-    config: Optional[AugmentationConfig] = None,
+    config: AugmentationConfig | None = None,
     include_stats: bool = True,
 ) -> None:
     """
@@ -210,7 +210,7 @@ def save_augmentation_chain(
         raise OSError(f"Failed to save augmentation chain: {e}") from e
 
 
-def load_augmentation_chain(filepath: str) -> List[Dict[str, Any]]:
+def load_augmentation_chain(filepath: str) -> list[dict[str, Any]]:
     """
     Load augmentation chain from JSON file.
 
@@ -260,10 +260,10 @@ def get_preset(preset_name: str) -> AugmentationConfig:
 
 def generate_augmentation_chain(
     num_samples: int,
-    config: Optional[AugmentationConfig] = None,
+    config: AugmentationConfig | None = None,
     verbose: bool = False,
-    save_path: Optional[str] = None,
-) -> List[Dict[str, Any]]:
+    save_path: str | None = None,
+) -> list[dict[str, Any]]:
     """
     Generate augmentation parameters for multiple samples.
 

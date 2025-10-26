@@ -9,7 +9,15 @@ git clone https://github.com/AdrianParedez/dpa.git
 cd dpa
 ```
 
-No external dependencies required (Python 3.8+).
+**Requirements:** Python 3.12+
+
+**Runtime:** No external dependencies
+
+**Development:** Install dev dependencies (optional)
+
+```bash
+pip install -r requirements-dev.txt
+```
 
 ## Quick Start
 
@@ -30,13 +38,27 @@ results = generate_augmentation_chain(100, config, save_path="augmentations.json
 
 ## Usage
 
-See `example_usage.py` for full examples or check the [documentation](docs/).
+See `examples/example_usage.py` for full examples or check the [documentation](docs/).
 
 ## Testing
 
+Run all tests:
+
 ```bash
-pytest test_dpa.py -v
+pytest tests/ -v
 ```
+
+Lint with Ruff:
+
+```bash
+ruff check .
+```
+
+## Documentation
+
+- [API Reference](docs/API.md) - Complete function documentation
+- [Usage Guide](docs/GUIDE.md) - Examples and best practices
+- [Architecture](docs/ARCHITECTURE.md) - Deep dive into how DPA works
 
 ## License
 
