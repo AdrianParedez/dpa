@@ -242,6 +242,15 @@ DPA is designed for high-performance scenarios:
 - **Performance Analysis**: Benchmarking and optimization of augmentation pipelines
 - **Research**: Reproducible experiments with consistent augmentation parameters
 
+## Releases
+
+- **[v0.2.0](docs/releases/RELEASE_NOTES_v0.2.0.md)** - Distributed Training, Batch Processing & Benchmarking
+- **v0.1.0** - Initial Release
+
+For detailed release notes, see [docs/releases/](docs/releases/).
+
+For the complete changelog, see [CHANGELOG.md](CHANGELOG.md).
+
 ## License
 
 MIT License - see LICENSE file for details

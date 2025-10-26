@@ -94,10 +94,10 @@ stats = compute_streaming_statistics(
 ## 📚 **Documentation & Examples**
 
 ### New Documentation
-- [Distributed Training Guide](docs/DISTRIBUTED.md) - Complete distributed training setup
-- [Batch Processing Guide](docs/BATCH.md) - All batching strategies and memory management
-- [Benchmarking Guide](docs/BENCHMARK.md) - Performance analysis and optimization
-- [Scaling Guide](docs/SCALING.md) - Large-scale deployment considerations
+- [Distributed Training Guide](../DISTRIBUTED.md) - Complete distributed training setup
+- [Batch Processing Guide](../BATCH.md) - All batching strategies and memory management
+- [Benchmarking Guide](../BENCHMARK.md) - Performance analysis and optimization
+- [Scaling Guide](../SCALING.md) - Large-scale deployment considerations
 
 ### Example Scripts
 - `distributed_rank_aware_generation.py` - Rank-aware parameter generation
@@ -159,11 +159,11 @@ Performance benchmarks on standard hardware:
 
 ## 🤝 **Contributing**
 
-We welcome contributions! See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
+We welcome contributions! See [CONTRIBUTING.md](../../CONTRIBUTING.md) for guidelines.
 
 ## 📄 **License**
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+This project is licensed under the MIT License - see the [LICENSE](../../LICENSE) file for details.
 
 ## 🙏 **Acknowledgments**
 
