@@ -44,3 +44,14 @@ htmlcov/
 
 *.json
 !example_augmentations.json
+
+# Benchmark output files
+benchmark_report.json
+benchmark_results/
+performance_logs/
+
+# Example output files (keep examples but ignore their output)
+examples/demo_augmentations.json
+examples/benchmark_report.json
+.kiro/
+TODO.md

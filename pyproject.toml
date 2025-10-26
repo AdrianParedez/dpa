@@ -4,15 +4,18 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "dpa"
-version = "0.1.0"
-description = "Deterministic Procedural Augmentation for reproducible machine learning"
+version = "0.2.0"
+description = "Deterministic Procedural Augmentation with distributed training, batch processing, and performance benchmarking"
 readme = "README.md"
 requires-python = ">=3.12"
+dependencies = [
+    "psutil>=5.9.0",
+]
 license = {text = "MIT"}
 authors = [
     {name = "Adrian Paredez", email = "contact@paredez.dev"},
 ]
-keywords = ["augmentation", "machine-learning", "data", "reproducible", "deterministic"]
+keywords = ["augmentation", "machine-learning", "data", "reproducible", "deterministic", "distributed-training", "batch-processing", "benchmarking", "performance", "scalable"]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
