@@ -17,82 +17,144 @@ try:
 except ImportError:
     _PSUTIL_AVAILABLE = False
 
+
 # Import batch processing components
 def _import_batch_components():
     """Dynamically import batch components."""
     try:
-        from .batch import BatchProcessor, BatchStrategy, BatchConfig, BatchMetrics
+        from .batch import BatchConfig, BatchMetrics, BatchProcessor, BatchStrategy
+
         return True, BatchProcessor, BatchStrategy, BatchConfig, BatchMetrics
     except ImportError:
         try:
             # Try importing from the same directory
             import os
             import sys
+
             current_dir = os.path.dirname(__file__)
             if current_dir not in sys.path:
                 sys.path.insert(0, current_dir)
-            
+
             import batch
-            return True, batch.BatchProcessor, batch.BatchStrategy, batch.BatchConfig, batch.BatchMetrics
+
+            return (
+                True,
+                batch.BatchProcessor,
+                batch.BatchStrategy,
+                batch.BatchConfig,
+                batch.BatchMetrics,
+            )
         except ImportError:
             return False, None, None, None, None
 
-_BATCH_AVAILABLE, BatchProcessor, BatchStrategy, BatchConfig, BatchMetrics = _import_batch_components()
+
+_BATCH_AVAILABLE, BatchProcessor, BatchStrategy, BatchConfig, BatchMetrics = (
+    _import_batch_components()
+)
+
 
 # Import distributed components
 def _import_distributed_components():
     """Dynamically import distributed components."""
     try:
         from .distributed import (
-            RankAwareSeedGenerator, 
+            DistributedRangeSplitter,
+            RankAwareSeedGenerator,
+            gen_distributed_augmentation_params,
+            stream_distributed_augmentation_chain,
+        )
+
+        return (
+            True,
+            RankAwareSeedGenerator,
             DistributedRangeSplitter,
             gen_distributed_augmentation_params,
-            stream_distributed_augmentation_chain
+            stream_distributed_augmentation_chain,
         )
-        return True, RankAwareSeedGenerator, DistributedRangeSplitter, gen_distributed_augmentation_params, stream_distributed_augmentation_chain
     except ImportError:
         try:
             # Try importing from the same directory
             import os
             import sys
+
             current_dir = os.path.dirname(__file__)
             if current_dir not in sys.path:
                 sys.path.insert(0, current_dir)
-            
+
             import distributed
-            return True, distributed.RankAwareSeedGenerator, distributed.DistributedRangeSplitter, distributed.gen_distributed_augmentation_params, distributed.stream_distributed_augmentation_chain
+
+            return (
+                True,
+                distributed.RankAwareSeedGenerator,
+                distributed.DistributedRangeSplitter,
+                distributed.gen_distributed_augmentation_params,
+                distributed.stream_distributed_augmentation_chain,
+            )
         except ImportError:
             return False, None, None, None, None
 
-_DISTRIBUTED_AVAILABLE, RankAwareSeedGenerator, DistributedRangeSplitter, gen_distributed_augmentation_params, stream_distributed_augmentation_chain = _import_distributed_components()
+
+(
+    _DISTRIBUTED_AVAILABLE,
+    RankAwareSeedGenerator,
+    DistributedRangeSplitter,
+    gen_distributed_augmentation_params,
+    stream_distributed_augmentation_chain,
+) = _import_distributed_components()
+
 
 # Import benchmark components
 def _import_benchmark_components():
     """Dynamically import benchmark components."""
     try:
         from .benchmark import (
+            BenchmarkRunner,
+            PerformanceProfiler,
+            benchmark_function,
+            measure_memory,
+            measure_time,
+        )
+
+        return (
+            True,
             PerformanceProfiler,
             BenchmarkRunner,
             measure_time,
             measure_memory,
-            benchmark_function
+            benchmark_function,
         )
-        return True, PerformanceProfiler, BenchmarkRunner, measure_time, measure_memory, benchmark_function
     except ImportError:
         try:
             # Try importing from the same directory
             import os
             import sys
+
             current_dir = os.path.dirname(__file__)
             if current_dir not in sys.path:
                 sys.path.insert(0, current_dir)
-            
+
             import benchmark
-            return True, benchmark.PerformanceProfiler, benchmark.BenchmarkRunner, benchmark.measure_time, benchmark.measure_memory, benchmark.benchmark_function
+
+            return (
+                True,
+                benchmark.PerformanceProfiler,
+                benchmark.BenchmarkRunner,
+                benchmark.measure_time,
+                benchmark.measure_memory,
+                benchmark.benchmark_function,
+            )
         except ImportError:
             return False, None, None, None, None, None
 
-_BENCHMARK_AVAILABLE, PerformanceProfiler, BenchmarkRunner, measure_time, measure_memory, benchmark_function = _import_benchmark_components()
+
+(
+    _BENCHMARK_AVAILABLE,
+    PerformanceProfiler,
+    BenchmarkRunner,
+    measure_time,
+    measure_memory,
+    benchmark_function,
+) = _import_benchmark_components()
 
 
 class StreamingError(Exception):
@@ -442,7 +504,7 @@ def stream_augmentation_chain(
     config: AugmentationConfig | None = None,
     start_id: int = 0,
     chunk_size: int | None = None,
-    batch_config: 'BatchConfig | None' = None,
+    batch_config: "BatchConfig | None" = None,
     rank: int | None = None,
     world_size: int | None = None,
     verbose: bool = False,
@@ -515,7 +577,7 @@ def stream_augmentation_chain(
         raise ValueError("num_samples must be non-negative")
     if start_id < 0:
         raise ValueError("start_id must be non-negative")
-    
+
     # Validate distributed parameters
     if rank is not None or world_size is not None:
         if rank is None or world_size is None:
@@ -531,11 +593,11 @@ def stream_augmentation_chain(
                 "Distributed module not available. "
                 "Please ensure the distributed module is properly installed."
             )
-    
+
     # Check for mutually exclusive parameters
     if chunk_size is not None and batch_config is not None:
         raise ValueError("chunk_size and batch_config are mutually exclusive")
-    
+
     # If distributed parameters are provided, delegate to distributed streaming
     if rank is not None and world_size is not None:
         # Note: distributed streaming doesn't support batch_config or progress_callback yet
@@ -544,7 +606,7 @@ def stream_augmentation_chain(
             raise ValueError("batch_config is not yet supported with distributed streaming")
         if progress_callback is not None:
             raise ValueError("progress_callback is not yet supported with distributed streaming")
-        
+
         yield from stream_distributed_augmentation_chain(
             num_samples=num_samples,
             rank=rank,
@@ -555,7 +617,7 @@ def stream_augmentation_chain(
             verbose=verbose,
         )
         return
-    
+
     # If batch_config is provided, delegate to the batched streaming function
     if batch_config is not None:
         if not _BATCH_AVAILABLE:
@@ -579,10 +641,7 @@ def stream_augmentation_chain(
     # Create progress tracking
     progress = create_streaming_progress(estimated_total=num_samples, start_id=start_id)
     metadata = create_streaming_metadata(
-        total_samples=num_samples,
-        config=config,
-        start_id=start_id,
-        chunk_size=chunk_size
+        total_samples=num_samples, config=config, start_id=start_id, chunk_size=chunk_size
     )
 
     if verbose and num_samples > 0:
@@ -638,7 +697,7 @@ def stream_augmentation_chain(
             if len(chunk) == chunk_size:
                 # Update progress before yielding chunk
                 update_streaming_progress(progress, i + 1, sample_id)
-                
+
                 if verbose and num_samples > 100 and (i + 1) % max(1, num_samples // 20) == 0:
                     progress_info = format_progress_info(progress)
                     sys.stdout.write(f"Progress: {progress_info}\n")
@@ -654,10 +713,10 @@ def stream_augmentation_chain(
         if chunk:
             # Update final progress
             update_streaming_progress(progress, num_samples, start_id + num_samples - 1)
-            
+
             if progress_callback:
                 progress_callback(progress, metadata)
-                
+
             yield chunk  # pyright: ignore[reportReturnType]
 
     if verbose and num_samples > 0:
@@ -670,7 +729,7 @@ def stream_augmentation_range(
     end_id: int,
     config: AugmentationConfig | None = None,
     chunk_size: int | None = None,
-    batch_config: 'BatchConfig | None' = None,
+    batch_config: "BatchConfig | None" = None,
     rank: int | None = None,
     world_size: int | None = None,
 ) -> Generator[dict[str, Any], None, None]:
@@ -775,7 +834,7 @@ def compute_streaming_statistics(
         >>> # Both should produce identical results
         >>> params_list = generate_augmentation_chain(100)
         >>> batch_stats = compute_statistics(params_list)
-        >>> 
+        >>>
         >>> generator = stream_augmentation_chain(100)
         >>> streaming_stats = compute_streaming_statistics(generator)
         >>> assert batch_stats == streaming_stats
@@ -946,8 +1005,8 @@ def save_augmentation_stream(
         Save without statistics for faster processing:
         >>> generator = stream_augmentation_chain(100_000)
         >>> save_augmentation_stream(
-        ...     generator, 
-        ...     "fast_save.json", 
+        ...     generator,
+        ...     "fast_save.json",
         ...     include_stats=False,
         ...     buffer_size=5000
         ... )
@@ -961,17 +1020,17 @@ def save_augmentation_stream(
         >>> def progress_handler(progress, metadata):
         ...     if progress.progress_percentage():
         ...         print(f"Progress: {progress.progress_percentage():.1f}%")
-        >>> 
+        >>>
         >>> generator = stream_augmentation_chain(50000)
         >>> save_augmentation_stream(
-        ...     generator, 
+        ...     generator,
         ...     "tracked_save.json",
         ...     progress_callback=progress_handler
         ... )
     """
     file_handle = None
     samples_written = 0
-    
+
     try:
         # Ensure directory exists
         Path(filepath).parent.mkdir(parents=True, exist_ok=True)
@@ -981,9 +1040,7 @@ def save_augmentation_stream(
         # Create progress tracking (unknown total for streaming)
         progress = create_streaming_progress(estimated_total=None, start_id=0)
         metadata = create_streaming_metadata(
-            total_samples=None,
-            config=config,
-            buffer_size=buffer_size
+            total_samples=None, config=config, buffer_size=buffer_size
         )
 
         if verbose:
@@ -994,7 +1051,7 @@ def save_augmentation_stream(
             try:
                 if verbose:
                     sys.stdout.write("Computing statistics from stream...\n")
-                
+
                 stats, all_params = _compute_streaming_statistics(param_generator)
                 total_samples = len(all_params)
 
@@ -1020,10 +1077,12 @@ def save_augmentation_stream(
                 finally:
                     safe_close_file(file_handle, filepath)
                     file_handle = None
-                
+
                 if verbose:
                     final_progress = format_progress_info(progress)
-                    sys.stdout.write(f"Saved {samples_written} augmentations to {filepath} ({final_progress})\n")
+                    sys.stdout.write(
+                        f"Saved {samples_written} augmentations to {filepath} ({final_progress})\n"
+                    )
                 else:
                     sys.stdout.write(f"Saved {samples_written} augmentations to {filepath}\n")
 
@@ -1032,7 +1091,9 @@ def save_augmentation_stream(
                     progress_callback(progress, metadata)
 
             except GeneratorExhaustionError:
-                raise PartialWriteError(f"Generator exhausted unexpectedly during statistics computation", 0)
+                raise PartialWriteError(
+                    "Generator exhausted unexpectedly during statistics computation", 0
+                )
             except Exception as e:
                 raise PartialWriteError(f"Failed to compute statistics and save: {e}", 0) from e
 
@@ -1041,7 +1102,7 @@ def save_augmentation_stream(
             file_handle = None
             try:
                 file_handle = open(filepath, "w")
-                
+
                 # Write opening structure
                 file_handle.write("{\n")
                 file_handle.write('  "metadata": {\n')
@@ -1072,8 +1133,10 @@ def save_augmentation_stream(
                                 samples_written += 1
 
                             # Update progress
-                            update_streaming_progress(progress, samples_written, samples_written - 1)
-                            
+                            update_streaming_progress(
+                                progress, samples_written, samples_written - 1
+                            )
+
                             if verbose and samples_written % (buffer_size * 10) == 0:
                                 progress_info = format_progress_info(progress)
                                 sys.stdout.write(f"Streaming progress: {progress_info}\n")
@@ -1124,7 +1187,9 @@ def save_augmentation_stream(
 
                 if verbose:
                     final_progress = format_progress_info(progress)
-                    sys.stdout.write(f"Saved {samples_written} augmentations to {filepath} ({final_progress})\n")
+                    sys.stdout.write(
+                        f"Saved {samples_written} augmentations to {filepath} ({final_progress})\n"
+                    )
                 else:
                     sys.stdout.write(f"Saved {samples_written} augmentations to {filepath}\n")
 
@@ -1146,7 +1211,7 @@ def save_augmentation_stream(
             except ResourceCleanupError as cleanup_error:
                 if verbose:
                     sys.stdout.write(f"Warning during cleanup: {cleanup_error}\n")
-        
+
         # Re-raise the original exception
         if isinstance(e, (StreamingError, PartialWriteError, StreamingIOError)):
             raise
@@ -1194,9 +1259,9 @@ def load_augmentation_stream(
         Load with progress tracking:
         >>> def progress_handler(progress, metadata):
         ...     print(f"Loaded {progress.samples_processed} samples")
-        >>> 
+        >>>
         >>> for params in load_augmentation_stream(
-        ...     "large_dataset.json", 
+        ...     "large_dataset.json",
         ...     verbose=True,
         ...     progress_callback=progress_handler
         ... ):
@@ -1209,13 +1274,13 @@ def load_augmentation_stream(
         ...         filtered_process(params)
     """
     file_handle = None
-    
+
     try:
         if not Path(filepath).exists():
             raise FileNotFoundError(f"Augmentation file not found: {filepath}")
 
         file_handle = open(filepath)
-        
+
         try:
             data = json.load(file_handle)
         except json.JSONDecodeError as e:
@@ -1232,14 +1297,13 @@ def load_augmentation_stream(
 
         # Validate that augmentations is a list
         if not isinstance(augmentations, list):
-            raise StreamingIOError("Invalid augmentation file format: 'augmentations' must be a list")
+            raise StreamingIOError(
+                "Invalid augmentation file format: 'augmentations' must be a list"
+            )
 
         # Create progress tracking
         progress = create_streaming_progress(estimated_total=total_samples, start_id=0)
-        metadata = create_streaming_metadata(
-            total_samples=total_samples,
-            chunk_size=chunk_size
-        )
+        metadata = create_streaming_metadata(total_samples=total_samples, chunk_size=chunk_size)
 
         if verbose:
             sys.stdout.write(f"Loading {total_samples} augmentations from {filepath}\n")
@@ -1252,11 +1316,17 @@ def load_augmentation_stream(
                 for i, params in enumerate(augmentations):
                     # Validate parameter structure
                     if not isinstance(params, dict):
-                        raise StreamingIOError(f"Invalid parameter format at index {i}: expected dict, got {type(params)}")
-                    
+                        raise StreamingIOError(
+                            f"Invalid parameter format at index {i}: expected dict, got {type(params)}"
+                        )
+
                     update_streaming_progress(progress, i + 1, i)
-                    
-                    if verbose and total_samples > 100 and (i + 1) % max(1, total_samples // 20) == 0:
+
+                    if (
+                        verbose
+                        and total_samples > 100
+                        and (i + 1) % max(1, total_samples // 20) == 0
+                    ):
                         progress_info = format_progress_info(progress)
                         sys.stdout.write(f"Loading progress: {progress_info}\n")
 
@@ -1268,19 +1338,25 @@ def load_augmentation_stream(
                 # Yield chunks of parameters
                 chunk = []
                 items_yielded = 0
-                
+
                 for i, params in enumerate(augmentations):
                     # Validate parameter structure
                     if not isinstance(params, dict):
-                        raise StreamingIOError(f"Invalid parameter format at index {i}: expected dict, got {type(params)}")
-                    
+                        raise StreamingIOError(
+                            f"Invalid parameter format at index {i}: expected dict, got {type(params)}"
+                        )
+
                     chunk.append(params)
 
                     if len(chunk) >= chunk_size:
                         items_yielded += len(chunk)
                         update_streaming_progress(progress, items_yielded, i)
-                        
-                        if verbose and total_samples > 100 and items_yielded % (chunk_size * 10) == 0:
+
+                        if (
+                            verbose
+                            and total_samples > 100
+                            and items_yielded % (chunk_size * 10) == 0
+                        ):
                             progress_info = format_progress_info(progress)
                             sys.stdout.write(f"Loading progress: {progress_info}\n")
 
@@ -1294,10 +1370,10 @@ def load_augmentation_stream(
                 if chunk:
                     items_yielded += len(chunk)
                     update_streaming_progress(progress, items_yielded, len(augmentations) - 1)
-                    
+
                     if progress_callback:
                         progress_callback(progress, metadata)
-                        
+
                     yield chunk  # pyright: ignore[reportReturnType]
 
             if verbose:
@@ -1667,7 +1743,9 @@ def format_progress_info(progress: StreamingProgress) -> str:
     return " ".join(parts)
 
 
-def create_simple_progress_callback(verbose: bool = True) -> Callable[[StreamingProgress, StreamingMetadata], None]:
+def create_simple_progress_callback(
+    verbose: bool = True,
+) -> Callable[[StreamingProgress, StreamingMetadata], None]:
     """
     Create a simple progress callback function for streaming operations.
 
@@ -1677,6 +1755,7 @@ def create_simple_progress_callback(verbose: bool = True) -> Callable[[Streaming
     Returns:
         Callback function that accepts (progress, metadata) arguments
     """
+
     def progress_callback(progress: StreamingProgress, metadata: StreamingMetadata) -> None:
         """Simple progress callback that prints progress information."""
         if verbose:
@@ -1685,7 +1764,7 @@ def create_simple_progress_callback(verbose: bool = True) -> Callable[[Streaming
             if metadata.total_samples is not None:
                 operation = f"processing {metadata.total_samples} samples"
             sys.stdout.write(f"[{operation}] {progress_info}\n")
-    
+
     return progress_callback
 
 
@@ -1704,10 +1783,10 @@ def safe_close_file(file_handle: Any, filepath: str = "") -> None:
         return
 
     try:
-        if hasattr(file_handle, 'close'):
+        if hasattr(file_handle, "close"):
             file_handle.close()
     except Exception as e:
-        error_msg = f"Failed to close file handle"
+        error_msg = "Failed to close file handle"
         if filepath:
             error_msg += f" for {filepath}"
         raise ResourceCleanupError(f"{error_msg}: {e}") from e
@@ -1727,16 +1806,14 @@ def safe_cleanup_generator(generator: Generator[Any, None, None]) -> None:
         return
 
     try:
-        if hasattr(generator, 'close'):
+        if hasattr(generator, "close"):
             generator.close()
     except Exception as e:
         raise ResourceCleanupError(f"Failed to cleanup generator: {e}") from e
 
 
 def recover_partial_write(
-    filepath: str,
-    expected_samples: int | None = None,
-    verbose: bool = False
+    filepath: str, expected_samples: int | None = None, verbose: bool = False
 ) -> dict[str, Any]:
     """
     Attempt to recover information from a partially written streaming file.
@@ -1756,37 +1833,34 @@ def recover_partial_write(
     Raises:
         StreamingIOError: If file cannot be accessed
     """
-    recovery_info = {
-        'recoverable': False,
-        'samples_found': 0,
-        'metadata': None,
-        'error': None
-    }
+    recovery_info = {"recoverable": False, "samples_found": 0, "metadata": None, "error": None}
 
     try:
         if not Path(filepath).exists():
-            recovery_info['error'] = "File does not exist"
+            recovery_info["error"] = "File does not exist"
             return recovery_info
 
         if verbose:
             sys.stdout.write(f"Attempting to recover partial write from {filepath}\n")
 
-        with open(filepath, 'r') as f:
+        with open(filepath) as f:
             content = f.read()
 
         # Try to parse as much JSON as possible
         try:
             # First, try to parse the complete file
             data = json.loads(content)
-            recovery_info['recoverable'] = True
-            recovery_info['metadata'] = data.get('metadata', {})
-            
-            if 'augmentations' in data:
-                recovery_info['samples_found'] = len(data['augmentations'])
-            
+            recovery_info["recoverable"] = True
+            recovery_info["metadata"] = data.get("metadata", {})
+
+            if "augmentations" in data:
+                recovery_info["samples_found"] = len(data["augmentations"])
+
             if verbose:
-                sys.stdout.write(f"File is complete with {recovery_info['samples_found']} samples\n")
-            
+                sys.stdout.write(
+                    f"File is complete with {recovery_info['samples_found']} samples\n"
+                )
+
             return recovery_info
 
         except json.JSONDecodeError:
@@ -1799,11 +1873,11 @@ def recover_partial_write(
             if metadata_match != -1:
                 try:
                     # Try to extract metadata
-                    metadata_start = content.find('{', metadata_match)
-                    metadata_end = content.find('},', metadata_start)
+                    metadata_start = content.find("{", metadata_match)
+                    metadata_end = content.find("},", metadata_start)
                     if metadata_end != -1:
-                        metadata_json = content[metadata_start:metadata_end + 1]
-                        recovery_info['metadata'] = json.loads(metadata_json)
+                        metadata_json = content[metadata_start : metadata_end + 1]
+                        recovery_info["metadata"] = json.loads(metadata_json)
                         if verbose:
                             sys.stdout.write("Successfully recovered metadata\n")
                 except json.JSONDecodeError:
@@ -1816,37 +1890,37 @@ def recover_partial_write(
                 # Count complete JSON objects in the augmentations array
                 samples_found = 0
                 search_pos = augmentations_start
-                
+
                 while True:
                     # Look for complete parameter objects
                     obj_start = content.find('{"rotation"', search_pos)
                     if obj_start == -1:
                         break
-                    
-                    obj_end = content.find('}', obj_start)
+
+                    obj_end = content.find("}", obj_start)
                     if obj_end == -1:
                         break
-                    
+
                     # Try to parse this object
                     try:
-                        obj_json = content[obj_start:obj_end + 1]
+                        obj_json = content[obj_start : obj_end + 1]
                         json.loads(obj_json)
                         samples_found += 1
                         search_pos = obj_end + 1
                     except json.JSONDecodeError:
                         break
 
-                recovery_info['samples_found'] = samples_found
-                recovery_info['recoverable'] = samples_found > 0
+                recovery_info["samples_found"] = samples_found
+                recovery_info["recoverable"] = samples_found > 0
 
                 if verbose:
                     sys.stdout.write(f"Recovered {samples_found} complete samples\n")
 
-            if not recovery_info['recoverable']:
-                recovery_info['error'] = "No recoverable data found in file"
+            if not recovery_info["recoverable"]:
+                recovery_info["error"] = "No recoverable data found in file"
 
     except OSError as e:
-        recovery_info['error'] = f"I/O error during recovery: {e}"
+        recovery_info["error"] = f"I/O error during recovery: {e}"
         raise StreamingIOError(f"Cannot access file for recovery: {e}") from e
 
     return recovery_info
@@ -1859,7 +1933,7 @@ def resume_streaming_save(
     config: AugmentationConfig | None = None,
     include_stats: bool = True,
     buffer_size: int = 1000,
-    verbose: bool = False
+    verbose: bool = False,
 ) -> None:
     """
     Resume a streaming save operation from a specific sample ID.
@@ -1889,6 +1963,7 @@ def resume_streaming_save(
     resumed_generator = param_generator
 
     if resume_from_sample > 0:
+
         def skip_generator() -> Generator[dict[str, Any], None, None]:
             nonlocal samples_skipped
             for params in param_generator:
@@ -1910,27 +1985,27 @@ def resume_streaming_save(
             config=config,
             include_stats=include_stats,
             buffer_size=buffer_size,
-            verbose=verbose
+            verbose=verbose,
         )
     except Exception as e:
         raise PartialWriteError(
             f"Failed to resume streaming save from sample {resume_from_sample}: {e}",
-            samples_skipped
+            samples_skipped,
         ) from e
 
 
 class StreamingContext:
     """
     Context manager for safe streaming operations with automatic resource cleanup.
-    
+
     This context manager ensures that generators and file handles are properly
     cleaned up even if exceptions occur during streaming operations.
     """
-    
+
     def __init__(self, verbose: bool = False) -> None:
         """
         Initialize streaming context.
-        
+
         Args:
             verbose: If True, print cleanup information
         """
@@ -1938,36 +2013,36 @@ class StreamingContext:
         self.generators: list[Generator[Any, None, None]] = []
         self.file_handles: list[tuple[Any, str]] = []  # (handle, filepath) pairs
         self.cleanup_errors: list[Exception] = []
-    
+
     def register_generator(self, generator: Generator[Any, None, None]) -> None:
         """
         Register a generator for cleanup.
-        
+
         Args:
             generator: Generator to register for cleanup
         """
         if generator is not None:
             self.generators.append(generator)
-    
+
     def register_file_handle(self, file_handle: Any, filepath: str = "") -> None:
         """
         Register a file handle for cleanup.
-        
+
         Args:
             file_handle: File handle to register for cleanup
             filepath: Optional filepath for error messages
         """
         if file_handle is not None:
             self.file_handles.append((file_handle, filepath))
-    
-    def __enter__(self) -> 'StreamingContext':
+
+    def __enter__(self) -> "StreamingContext":
         """Enter the streaming context."""
         return self
-    
+
     def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
         """
         Exit the streaming context and cleanup resources.
-        
+
         Args:
             exc_type: Exception type (if any)
             exc_val: Exception value (if any)
@@ -1983,7 +2058,7 @@ class StreamingContext:
                 self.cleanup_errors.append(e)
                 if self.verbose:
                     sys.stdout.write(f"Warning: {e}\n")
-        
+
         # Clean up file handles
         for file_handle, filepath in self.file_handles:
             try:
@@ -1994,7 +2069,7 @@ class StreamingContext:
                 self.cleanup_errors.append(e)
                 if self.verbose:
                     sys.stdout.write(f"Warning: {e}\n")
-        
+
         # If there were cleanup errors and no original exception, raise cleanup error
         if self.cleanup_errors and exc_type is None:
             raise ResourceCleanupError(
@@ -2004,37 +2079,34 @@ class StreamingContext:
 
 
 def with_streaming_context(
-    operation: Callable[..., Any],
-    *args: Any,
-    verbose: bool = False,
-    **kwargs: Any
+    operation: Callable[..., Any], *args: Any, verbose: bool = False, **kwargs: Any
 ) -> Any:
     """
     Execute a streaming operation within a safe context.
-    
+
     Args:
         operation: Function to execute
         *args: Positional arguments for the operation
         verbose: If True, print context information
         **kwargs: Keyword arguments for the operation
-    
+
     Returns:
         Result of the operation
-    
+
     Raises:
         Any exception from the operation or ResourceCleanupError
     """
     with StreamingContext(verbose=verbose) as context:
         # Add context to kwargs if the operation accepts it
-        if 'streaming_context' in operation.__code__.co_varnames:
-            kwargs['streaming_context'] = context
-        
+        if "streaming_context" in operation.__code__.co_varnames:
+            kwargs["streaming_context"] = context
+
         return operation(*args, **kwargs)
 
 
 def stream_augmentation_chain_batched(
     num_samples: int,
-    batch_config: 'BatchConfig | None' = None,
+    batch_config: "BatchConfig | None" = None,
     config: AugmentationConfig | None = None,
     start_id: int = 0,
     verbose: bool = False,
@@ -2116,7 +2188,7 @@ def stream_augmentation_chain_batched(
         start_id=start_id,
         chunk_size=None,  # We'll handle batching ourselves
         verbose=False,  # We'll handle verbose output
-        progress_callback=None  # We'll handle progress callbacks
+        progress_callback=None,  # We'll handle progress callbacks
     )
 
     # Create batch processor
@@ -2128,7 +2200,7 @@ def stream_augmentation_chain_batched(
         total_samples=num_samples,
         config=config,
         start_id=start_id,
-        chunk_size=batch_config.batch_size
+        chunk_size=batch_config.batch_size,
     )
 
     if verbose:
@@ -2155,10 +2227,16 @@ def stream_augmentation_chain_batched(
             update_streaming_progress(progress, samples_processed, start_id + samples_processed - 1)
 
             if verbose:
-                if num_samples > 100 and batch_count % max(1, (num_samples // batch_config.batch_size or 32) // 20) == 0:
+                if (
+                    num_samples > 100
+                    and batch_count % max(1, (num_samples // batch_config.batch_size or 32) // 20)
+                    == 0
+                ):
                     # Show progress for large datasets (every 5% of batches)
                     progress_info = format_progress_info(progress)
-                    sys.stdout.write(f"Batch progress: {progress_info} (batch #{batch_count}, size: {len(batch)})\n")
+                    sys.stdout.write(
+                        f"Batch progress: {progress_info} (batch #{batch_count}, size: {len(batch)})\n"
+                    )
                 elif num_samples <= 100:
                     # Show individual batches for small datasets
                     sys.stdout.write(f"Batch #{batch_count}: {len(batch)} samples\n")
@@ -2178,13 +2256,14 @@ def stream_augmentation_chain_batched(
 
     except Exception as e:
         from .batch import BatchProcessingError
+
         raise BatchProcessingError(f"Batch processing failed: {e}") from e
 
 
 def stream_augmentation_range_batched(
     start_id: int,
     end_id: int,
-    batch_config: 'BatchConfig | None' = None,
+    batch_config: "BatchConfig | None" = None,
     config: AugmentationConfig | None = None,
 ) -> Generator[list[dict[str, Any]], None, None]:
     """
@@ -2241,7 +2320,7 @@ def stream_augmentation_range_batched(
 
 def process_augmentation_batches(
     param_generator: Generator[dict[str, Any], None, None],
-    batch_config: 'BatchConfig | None' = None,
+    batch_config: "BatchConfig | None" = None,
     processor_func: Callable[[list[dict[str, Any]]], Any] | None = None,
     verbose: bool = False,
 ) -> Generator[Any, None, None]:
@@ -2267,17 +2346,17 @@ def process_augmentation_batches(
     Examples:
         Custom batch processing with memory monitoring:
         >>> from src.batch import BatchConfig, BatchStrategy
-        >>> 
+        >>>
         >>> def custom_processor(batch):
         ...     # Custom processing logic
         ...     return [transform_params(params) for params in batch]
-        >>> 
+        >>>
         >>> generator = stream_augmentation_chain(10000)
         >>> batch_config = BatchConfig(
         ...     strategy=BatchStrategy.MEMORY_OPTIMIZED,
         ...     max_memory_mb=500
         ... )
-        >>> 
+        >>>
         >>> for processed_batch in process_augmentation_batches(
         ...     generator, batch_config, custom_processor, verbose=True
         ... ):
@@ -2286,7 +2365,7 @@ def process_augmentation_batches(
         Simple batching without custom processing:
         >>> generator = stream_augmentation_chain(1000)
         >>> batch_config = BatchConfig(strategy=BatchStrategy.SEQUENTIAL, batch_size=50)
-        >>> 
+        >>>
         >>> for batch in process_augmentation_batches(generator, batch_config):
         ...     # batch is a list of parameter dictionaries
         ...     train_model_on_batch(batch)
@@ -2294,7 +2373,7 @@ def process_augmentation_batches(
         Adaptive batching for performance optimization:
         >>> generator = stream_augmentation_chain(100000)
         >>> batch_config = BatchConfig(strategy=BatchStrategy.ADAPTIVE)
-        >>> 
+        >>>
         >>> for batch in process_augmentation_batches(generator, batch_config, verbose=True):
         ...     # Batch size will adapt based on processing performance
         ...     result = expensive_processing(batch)
@@ -2318,7 +2397,9 @@ def process_augmentation_batches(
     batch_processor = BatchProcessor(batch_config.strategy, batch_config)
 
     if verbose:
-        sys.stdout.write(f"Starting batch processing using {batch_config.strategy.value} strategy\n")
+        sys.stdout.write(
+            f"Starting batch processing using {batch_config.strategy.value} strategy\n"
+        )
 
     try:
         batch_count = 0
@@ -2333,7 +2414,9 @@ def process_augmentation_batches(
             batch_count += 1
 
             if verbose and batch_count % 10 == 0:
-                sys.stdout.write(f"Processed {batch_count} batches (current batch size: {len(batch)})\n")
+                sys.stdout.write(
+                    f"Processed {batch_count} batches (current batch size: {len(batch)})\n"
+                )
 
             # Apply custom processing function
             result = processor_func(batch)
@@ -2344,13 +2427,14 @@ def process_augmentation_batches(
 
     except Exception as e:
         from .batch import BatchProcessingError
+
         raise BatchProcessingError(f"Batch processing failed: {e}") from e
 
 
 def get_batch_metrics(
     param_generator: Generator[dict[str, Any], None, None],
-    batch_config: 'BatchConfig | None' = None,
-) -> 'BatchMetrics':
+    batch_config: "BatchConfig | None" = None,
+) -> "BatchMetrics":
     """
     Collect metrics from batch processing operations.
 
@@ -2373,7 +2457,7 @@ def get_batch_metrics(
         >>> from src.batch import BatchConfig, BatchStrategy
         >>> generator = stream_augmentation_chain(10000)
         >>> batch_config = BatchConfig(strategy=BatchStrategy.ADAPTIVE)
-        >>> 
+        >>>
         >>> metrics = get_batch_metrics(generator, batch_config)
         >>> print(f"Average batch size: {metrics.avg_batch_size:.1f}")
         >>> print(f"Throughput: {metrics.throughput_samples_per_second:.1f} samples/sec")
@@ -2431,6 +2515,7 @@ def get_batch_metrics(
         if _PSUTIL_AVAILABLE:
             try:
                 import psutil
+
                 process = psutil.Process()
                 memory_usage = process.memory_info().rss / (1024 * 1024)  # Convert to MB
             except (AttributeError, OSError):
@@ -2441,11 +2526,12 @@ def get_batch_metrics(
             avg_batch_size=avg_batch_size,
             memory_usage_mb=memory_usage,
             processing_time_seconds=processing_time,
-            throughput_samples_per_second=throughput
+            throughput_samples_per_second=throughput,
         )
 
     except Exception as e:
         from .batch import BatchProcessingError
+
         raise BatchProcessingError(f"Failed to collect batch metrics: {e}") from e
 
 
@@ -2495,7 +2581,7 @@ def stream_augmentation_chain_with_memory_limit(
             "Batch processing module not available. "
             "Please ensure the batch module is properly installed."
         )
-    
+
     if max_memory_mb <= 0:
         raise ValueError("max_memory_mb must be positive")
 
@@ -2504,7 +2590,7 @@ def stream_augmentation_chain_with_memory_limit(
         strategy=BatchStrategy.MEMORY_OPTIMIZED,
         max_memory_mb=max_memory_mb,
         min_batch_size=1,
-        adaptive_sizing=True
+        adaptive_sizing=True,
     )
 
     yield from stream_augmentation_chain(
@@ -2518,9 +2604,7 @@ def stream_augmentation_chain_with_memory_limit(
 
 
 def estimate_optimal_batch_size(
-    sample_size_bytes: int = 200,
-    max_memory_mb: int = 1000,
-    safety_margin: float = 0.1
+    sample_size_bytes: int = 200, max_memory_mb: int = 1000, safety_margin: float = 0.1
 ) -> int:
     """
     Estimate optimal batch size based on memory constraints and sample size.
@@ -2559,10 +2643,10 @@ def estimate_optimal_batch_size(
 
     # Convert to bytes and apply safety margin
     available_bytes = max_memory_mb * 1024 * 1024 * (1 - safety_margin)
-    
+
     # Calculate how many samples can fit
     optimal_size = int(available_bytes / sample_size_bytes)
-    
+
     # Ensure minimum batch size of 1
     return max(1, optimal_size)
 
@@ -2600,23 +2684,23 @@ def get_memory_usage_estimate(
         ...     use_standard_processing()
     """
     raw_estimates = estimate_memory_usage(num_samples, include_statistics, bytes_per_param)
-    
+
     formatted = {}
     for key, bytes_value in raw_estimates.items():
         formatted[key] = format_memory_size(bytes_value)
         formatted[f"{key}_mb"] = bytes_value / (1024 * 1024)  # Also provide MB values
-    
+
     # Add recommendations
-    total_mb = raw_estimates['total'] / (1024 * 1024)
+    total_mb = raw_estimates["total"] / (1024 * 1024)
     if total_mb > 1000:  # > 1GB
-        formatted['recommendation'] = "Use streaming with memory-optimized batching"
-        formatted['suggested_batch_size'] = estimate_optimal_batch_size(bytes_per_param, 500)
+        formatted["recommendation"] = "Use streaming with memory-optimized batching"
+        formatted["suggested_batch_size"] = estimate_optimal_batch_size(bytes_per_param, 500)
     elif total_mb > 100:  # > 100MB
-        formatted['recommendation'] = "Consider using chunked streaming"
-        formatted['suggested_chunk_size'] = min(1000, num_samples // 10)
+        formatted["recommendation"] = "Consider using chunked streaming"
+        formatted["suggested_chunk_size"] = min(1000, num_samples // 10)
     else:
-        formatted['recommendation'] = "Standard processing should work fine"
-    
+        formatted["recommendation"] = "Standard processing should work fine"
+
     return formatted
 
 
@@ -2727,9 +2811,11 @@ def convert_stream_to_batches(
         "memory_optimized": BatchStrategy.MEMORY_OPTIMIZED,
         "adaptive": BatchStrategy.ADAPTIVE,
     }
-    
+
     if batch_strategy not in strategy_map:
-        raise ValueError(f"Invalid batch_strategy: {batch_strategy}. Must be one of {list(strategy_map.keys())}")
+        raise ValueError(
+            f"Invalid batch_strategy: {batch_strategy}. Must be one of {list(strategy_map.keys())}"
+        )
 
     # Create batch configuration
     batch_config = BatchConfig(
@@ -2737,12 +2823,12 @@ def convert_stream_to_batches(
         batch_size=batch_size,
         max_memory_mb=max_memory_mb,
         min_batch_size=1,
-        adaptive_sizing=True
+        adaptive_sizing=True,
     )
 
     # Create batch processor and process the stream
     batch_processor = BatchProcessor(batch_config.strategy, batch_config)
-    
+
     if batch_strategy in ["memory_optimized", "adaptive"]:
         yield from batch_processor.process_with_memory_monitoring(param_generator)
     else:
@@ -2754,7 +2840,7 @@ def get_batch_processing_metrics(
     config: AugmentationConfig | None = None,
     batch_strategies: list[str] | None = None,
     verbose: bool = False,
-) -> dict[str, 'BatchMetrics']:
+) -> dict[str, "BatchMetrics"]:
     """
     Compare performance of different batch processing strategies.
 
@@ -2796,37 +2882,36 @@ def get_batch_processing_metrics(
         batch_strategies = ["sequential", "round_robin", "memory_optimized", "adaptive"]
 
     results = {}
-    
+
     for strategy in batch_strategies:
         if verbose:
             print(f"Benchmarking {strategy} strategy...")
-        
+
         try:
             # Create a fresh generator for each strategy
             generator = stream_augmentation_chain(num_samples, config=config, verbose=False)
-            
+
             # Convert to batches and collect metrics
             batch_generator = convert_stream_to_batches(
-                generator, 
-                batch_strategy=strategy,
-                batch_size=32,
-                max_memory_mb=1000
+                generator, batch_strategy=strategy, batch_size=32, max_memory_mb=1000
             )
-            
+
             # Use the existing get_batch_metrics function
             metrics = get_batch_metrics(batch_generator)
             results[strategy] = metrics
-            
+
             if verbose:
-                print(f"  {strategy}: {metrics.throughput_samples_per_second:.1f} samples/sec, "
-                      f"avg batch size: {metrics.avg_batch_size:.1f}")
-                
+                print(
+                    f"  {strategy}: {metrics.throughput_samples_per_second:.1f} samples/sec, "
+                    f"avg batch size: {metrics.avg_batch_size:.1f}"
+                )
+
         except Exception as e:
             if verbose:
                 print(f"  {strategy}: failed with error: {e}")
             # Continue with other strategies
             continue
-    
+
     return results
 
 
@@ -2834,7 +2919,7 @@ def profile_augmentation_generation(
     func: Callable[..., Any] | None = None,
     *,
     enable_memory_tracking: bool = True,
-    operation_name: str | None = None
+    operation_name: str | None = None,
 ) -> Callable[..., Any]:
     """
     Decorator to profile augmentation parameter generation functions.
@@ -2878,7 +2963,7 @@ def profile_augmentation_generation(
     def decorator(f: Callable[..., Any]) -> Callable[..., Any]:
         profiler = PerformanceProfiler(enable_memory_tracking=enable_memory_tracking)
         actual_operation_name = operation_name or f.__name__
-        
+
         @wraps(f)
         def wrapper(*args: Any, **kwargs: Any) -> Any:
             profiler.start_profiling(actual_operation_name)
@@ -2888,14 +2973,14 @@ def profile_augmentation_generation(
             finally:
                 profile_result = profiler.end_profiling(actual_operation_name)
                 # Store profile result for later retrieval
-                if not hasattr(wrapper, '_profile_results'):
+                if not hasattr(wrapper, "_profile_results"):
                     wrapper._profile_results = []
                 wrapper._profile_results.append(profile_result)
-        
+
         # Add method to get profile results
         def get_profile_results():
-            return getattr(wrapper, '_profile_results', [])
-        
+            return getattr(wrapper, "_profile_results", [])
+
         wrapper.get_profile_results = get_profile_results
         wrapper._profiler = profiler
         return wrapper
@@ -2970,102 +3055,118 @@ def benchmark_augmentation_performance(
     # Benchmark basic parameter generation
     if verbose:
         print("Benchmarking parameter generation...")
-    
+
     def generation_benchmark():
         return generate_augmentation_chain(num_samples, config=config, verbose=False)
-    
+
     gen_result = benchmark_function(generation_benchmark, iterations=iterations)
-    results['generation'] = {
-        'avg_time_seconds': gen_result.avg_time_seconds,
-        'avg_time_ms': gen_result.avg_time_ms,
-        'throughput_samples_per_second': num_samples / gen_result.avg_time_seconds,
-        'min_time_ms': gen_result.min_time_ms,
-        'max_time_ms': gen_result.max_time_ms,
-        'std_dev_ms': gen_result.std_dev_seconds * 1000,
+    results["generation"] = {
+        "avg_time_seconds": gen_result.avg_time_seconds,
+        "avg_time_ms": gen_result.avg_time_ms,
+        "throughput_samples_per_second": num_samples / gen_result.avg_time_seconds,
+        "min_time_ms": gen_result.min_time_ms,
+        "max_time_ms": gen_result.max_time_ms,
+        "std_dev_ms": gen_result.std_dev_seconds * 1000,
     }
 
     # Benchmark streaming operations
     if include_streaming:
         if verbose:
             print("Benchmarking streaming operations...")
-        
+
         def streaming_benchmark():
             return list(stream_augmentation_chain(num_samples, config=config, verbose=False))
-        
+
         stream_result = benchmark_function(streaming_benchmark, iterations=iterations)
-        results['streaming'] = {
-            'avg_time_seconds': stream_result.avg_time_seconds,
-            'avg_time_ms': stream_result.avg_time_ms,
-            'throughput_samples_per_second': num_samples / stream_result.avg_time_seconds,
-            'overhead_vs_generation_percent': ((stream_result.avg_time_seconds - gen_result.avg_time_seconds) / gen_result.avg_time_seconds) * 100,
+        results["streaming"] = {
+            "avg_time_seconds": stream_result.avg_time_seconds,
+            "avg_time_ms": stream_result.avg_time_ms,
+            "throughput_samples_per_second": num_samples / stream_result.avg_time_seconds,
+            "overhead_vs_generation_percent": (
+                (stream_result.avg_time_seconds - gen_result.avg_time_seconds)
+                / gen_result.avg_time_seconds
+            )
+            * 100,
         }
 
     # Benchmark batch processing
     if include_batch_processing and _BATCH_AVAILABLE:
         if verbose:
             print("Benchmarking batch processing strategies...")
-        
+
         batch_results = {}
         strategies = ["sequential", "memory_optimized"]
-        
+
         for strategy in strategies:
             try:
+
                 def batch_benchmark():
                     generator = stream_augmentation_chain(num_samples, config=config, verbose=False)
                     return list(convert_stream_to_batches(generator, batch_strategy=strategy))
-                
-                batch_result = benchmark_function(batch_benchmark, iterations=max(1, iterations // 2))
+
+                batch_result = benchmark_function(
+                    batch_benchmark, iterations=max(1, iterations // 2)
+                )
                 batch_results[strategy] = {
-                    'avg_time_seconds': batch_result.avg_time_seconds,
-                    'throughput_samples_per_second': num_samples / batch_result.avg_time_seconds,
+                    "avg_time_seconds": batch_result.avg_time_seconds,
+                    "throughput_samples_per_second": num_samples / batch_result.avg_time_seconds,
                 }
-                
+
                 if verbose:
-                    print(f"  {strategy}: {batch_results[strategy]['throughput_samples_per_second']:.1f} samples/sec")
-                    
+                    print(
+                        f"  {strategy}: {batch_results[strategy]['throughput_samples_per_second']:.1f} samples/sec"
+                    )
+
             except Exception as e:
                 if verbose:
                     print(f"  {strategy}: failed with error: {e}")
                 continue
-        
+
         if batch_results:
             # Find best strategy
-            best_strategy = max(batch_results.items(), key=lambda x: x[1]['throughput_samples_per_second'])
-            results['batch_processing'] = {
-                'strategies': batch_results,
-                'best_strategy': best_strategy[0],
-                'best_throughput': best_strategy[1]['throughput_samples_per_second'],
+            best_strategy = max(
+                batch_results.items(), key=lambda x: x[1]["throughput_samples_per_second"]
+            )
+            results["batch_processing"] = {
+                "strategies": batch_results,
+                "best_strategy": best_strategy[0],
+                "best_throughput": best_strategy[1]["throughput_samples_per_second"],
             }
 
     # Add system information
-    results['system_info'] = {
-        'num_samples': num_samples,
-        'iterations': iterations,
-        'config': asdict(config),
+    results["system_info"] = {
+        "num_samples": num_samples,
+        "iterations": iterations,
+        "config": asdict(config),
     }
-    
+
     # Add memory usage if available
     if _PSUTIL_AVAILABLE:
         memory_info = get_current_memory_usage()
         if memory_info:
-            results['system_info']['memory_usage_mb'] = memory_info.get('rss', 0) / (1024 * 1024)
+            results["system_info"]["memory_usage_mb"] = memory_info.get("rss", 0) / (1024 * 1024)
 
     if verbose:
         print("Benchmarking completed!")
-        print(f"Generation: {results['generation']['throughput_samples_per_second']:.1f} samples/sec")
-        if 'streaming' in results:
-            print(f"Streaming: {results['streaming']['throughput_samples_per_second']:.1f} samples/sec")
-        if 'batch_processing' in results:
-            print(f"Best batch strategy: {results['batch_processing']['best_strategy']} "
-                  f"({results['batch_processing']['best_throughput']:.1f} samples/sec)")
+        print(
+            f"Generation: {results['generation']['throughput_samples_per_second']:.1f} samples/sec"
+        )
+        if "streaming" in results:
+            print(
+                f"Streaming: {results['streaming']['throughput_samples_per_second']:.1f} samples/sec"
+            )
+        if "batch_processing" in results:
+            print(
+                f"Best batch strategy: {results['batch_processing']['best_strategy']} "
+                f"({results['batch_processing']['best_throughput']:.1f} samples/sec)"
+            )
 
     return results
 
 
 def create_performance_profiler(
-    enable_memory_tracking: bool = True,
-    auto_report: bool = False
-) -> 'PerformanceProfiler':
+    enable_memory_tracking: bool = True, auto_report: bool = False
+) -> "PerformanceProfiler":
     """
     Create a performance profiler instance for manual profiling.
 
@@ -3138,13 +3239,13 @@ def get_performance_recommendations(
         >>> print("\\n".join(recommendations))
     """
     recommendations = []
-    
-    if 'generation' not in benchmark_results:
+
+    if "generation" not in benchmark_results:
         recommendations.append("Run benchmark_augmentation_performance() to get baseline metrics")
         return recommendations
 
-    gen_throughput = benchmark_results['generation']['throughput_samples_per_second']
-    
+    gen_throughput = benchmark_results["generation"]["throughput_samples_per_second"]
+
     # Throughput recommendations
     if target_throughput and gen_throughput < target_throughput:
         shortfall = target_throughput - gen_throughput
@@ -3152,43 +3253,49 @@ def get_performance_recommendations(
             f"Current throughput ({gen_throughput:.1f} samples/sec) is below target "
             f"({target_throughput:.1f} samples/sec) by {shortfall:.1f} samples/sec"
         )
-        
-        if 'batch_processing' in benchmark_results:
-            best_batch = benchmark_results['batch_processing']['best_throughput']
+
+        if "batch_processing" in benchmark_results:
+            best_batch = benchmark_results["batch_processing"]["best_throughput"]
             if best_batch > gen_throughput:
                 improvement = ((best_batch - gen_throughput) / gen_throughput) * 100
                 recommendations.append(
                     f"Use {benchmark_results['batch_processing']['best_strategy']} batch processing "
                     f"for {improvement:.1f}% performance improvement"
                 )
-        
+
         recommendations.append("Consider using streaming with chunking for large datasets")
         recommendations.append("Profile individual augmentation operations to identify bottlenecks")
 
     # Memory recommendations
     if memory_limit_mb:
-        system_memory = benchmark_results.get('system_info', {}).get('memory_usage_mb', 0)
+        system_memory = benchmark_results.get("system_info", {}).get("memory_usage_mb", 0)
         if system_memory > memory_limit_mb:
             recommendations.append(
                 f"Current memory usage ({system_memory:.1f}MB) exceeds limit ({memory_limit_mb}MB)"
             )
-            recommendations.append("Use stream_augmentation_chain_with_memory_limit() for memory-constrained processing")
+            recommendations.append(
+                "Use stream_augmentation_chain_with_memory_limit() for memory-constrained processing"
+            )
             recommendations.append("Consider memory-optimized batch processing strategy")
 
     # General optimization recommendations
-    if 'streaming' in benchmark_results:
-        streaming_overhead = benchmark_results['streaming'].get('overhead_vs_generation_percent', 0)
+    if "streaming" in benchmark_results:
+        streaming_overhead = benchmark_results["streaming"].get("overhead_vs_generation_percent", 0)
         if streaming_overhead > 10:  # More than 10% overhead
             recommendations.append(
                 f"Streaming has {streaming_overhead:.1f}% overhead - consider batch processing for better performance"
             )
         elif streaming_overhead < 5:  # Low overhead
-            recommendations.append("Streaming has low overhead - good for memory-efficient processing")
+            recommendations.append(
+                "Streaming has low overhead - good for memory-efficient processing"
+            )
 
     # Configuration recommendations
-    config = benchmark_results.get('system_info', {}).get('config', {})
-    if config.get('augmentation_depth', 10) > 15:
-        recommendations.append("Consider reducing augmentation_depth for faster parameter generation")
+    config = benchmark_results.get("system_info", {}).get("config", {})
+    if config.get("augmentation_depth", 10) > 15:
+        recommendations.append(
+            "Consider reducing augmentation_depth for faster parameter generation"
+        )
 
     if not recommendations:
         recommendations.append("Performance looks good! No specific optimizations needed.")

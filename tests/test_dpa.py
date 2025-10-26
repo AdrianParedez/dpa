@@ -1091,7 +1091,7 @@ class TestStreamingIO:
                     expected_first_chunk = [
                         gen_augmentation_params(i) for i in range(min(500, len(chunk)))
                     ]
-                    assert chunk[: len(expected_first_chunk)] == expected_first_chunk # pyright: ignore[reportArgumentType]
+                    assert chunk[: len(expected_first_chunk)] == expected_first_chunk  # pyright: ignore[reportArgumentType]
 
                 # Don't load everything to keep test fast
                 if chunk_count >= 5:  # Just test first few chunks
@@ -1116,157 +1116,168 @@ class TestStreamingIO:
 
     def test_error_handling_resource_cleanup(self):
         """Test resource cleanup functions."""
-        import tempfile
         import os
-        
+        import tempfile
+
         # Test safe_close_file with valid file handle
-        with tempfile.NamedTemporaryFile(mode='w', delete=False) as f:
+        with tempfile.NamedTemporaryFile(mode="w", delete=False) as f:
             filepath = f.name
             f.write("test")
-        
+
         # Open and close file safely
-        file_handle = open(filepath, 'r')
+        file_handle = open(filepath)
         safe_close_file(file_handle, filepath)
-        
+
         # Verify file is closed
         assert file_handle.closed
-        
+
         # Clean up
         os.unlink(filepath)
-        
+
         # Test safe_close_file with None handle
         safe_close_file(None, "nonexistent")
-        
+
         # Test safe_cleanup_generator
         def test_generator():
             yield 1
             yield 2
-        
+
         gen = test_generator()
         safe_cleanup_generator(gen)
-        
+
         # Test with None generator
         safe_cleanup_generator(None)
 
     def test_error_handling_partial_write_recovery(self):
         """Test partial write recovery functionality."""
-        import tempfile
         import json
         import os
-        
-        with tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.json') as f:
+        import tempfile
+
+        with tempfile.NamedTemporaryFile(mode="w", delete=False, suffix=".json") as f:
             filepath = f.name
-            
+
             # Create a valid complete file
             data = {
                 "metadata": {"num_samples": 2, "config": None, "streaming": True},
                 "augmentations": [
-                    {"rotation": 1.0, "brightness": 1.0, "noise": 0.0, "scale": 1.0, "contrast": 1.0, "hash": "abc"},
-                    {"rotation": 2.0, "brightness": 1.1, "noise": 0.1, "scale": 1.1, "contrast": 1.1, "hash": "def"}
-                ]
+                    {
+                        "rotation": 1.0,
+                        "brightness": 1.0,
+                        "noise": 0.0,
+                        "scale": 1.0,
+                        "contrast": 1.0,
+                        "hash": "abc",
+                    },
+                    {
+                        "rotation": 2.0,
+                        "brightness": 1.1,
+                        "noise": 0.1,
+                        "scale": 1.1,
+                        "contrast": 1.1,
+                        "hash": "def",
+                    },
+                ],
             }
             json.dump(data, f)
-        
+
         try:
             # Test recovery of complete file
             recovery_info = recover_partial_write(filepath, verbose=True)
-            assert recovery_info['recoverable'] is True
-            assert recovery_info['samples_found'] == 2
-            assert recovery_info['metadata'] is not None
-            assert recovery_info['error'] is None
-            
+            assert recovery_info["recoverable"] is True
+            assert recovery_info["samples_found"] == 2
+            assert recovery_info["metadata"] is not None
+            assert recovery_info["error"] is None
+
             # Test recovery of nonexistent file
             recovery_info = recover_partial_write("nonexistent.json")
-            assert recovery_info['recoverable'] is False
-            assert recovery_info['error'] == "File does not exist"
-            
+            assert recovery_info["recoverable"] is False
+            assert recovery_info["error"] == "File does not exist"
+
         finally:
             os.unlink(filepath)
 
     def test_error_handling_streaming_context(self):
         """Test StreamingContext for resource management."""
-        import tempfile
         import os
-        
+        import tempfile
+
         # Test successful context usage
         with StreamingContext(verbose=True) as context:
             # Create a test generator
             def test_gen():
                 yield 1
                 yield 2
-            
+
             gen = test_gen()
             context.register_generator(gen)
-            
+
             # Create a test file
-            with tempfile.NamedTemporaryFile(mode='w', delete=False) as f:
+            with tempfile.NamedTemporaryFile(mode="w", delete=False) as f:
                 filepath = f.name
                 context.register_file_handle(f, filepath)
                 f.write("test")
-        
+
         # Verify cleanup happened
         assert gen.gi_frame is None  # Generator was closed
-        
+
         # Clean up file
         if os.path.exists(filepath):
             os.unlink(filepath)
 
     def test_error_handling_resume_streaming_save(self):
         """Test resume streaming save functionality."""
-        import tempfile
         import os
-        
+        import tempfile
+
         # Create a generator with known data
         def test_generator():
             for i in range(10):
                 yield gen_augmentation_params(i)
-        
-        with tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.json') as f:
+
+        with tempfile.NamedTemporaryFile(mode="w", delete=False, suffix=".json") as f:
             filepath = f.name
-        
+
         try:
             # Test resume from sample 5
             resume_streaming_save(
-                test_generator(),
-                filepath,
-                resume_from_sample=5,
-                include_stats=False,
-                verbose=True
+                test_generator(), filepath, resume_from_sample=5, include_stats=False, verbose=True
             )
-            
+
             # Verify file was created and contains expected samples
             assert os.path.exists(filepath)
-            
+
             # Load and verify content
-            with open(filepath, 'r') as f:
+            with open(filepath) as f:
                 data = json.load(f)
-            
+
             # Should have 5 samples (from sample 5 to 9)
-            assert len(data['augmentations']) == 5
-            
+            assert len(data["augmentations"]) == 5
+
         finally:
             if os.path.exists(filepath):
                 os.unlink(filepath)
 
     def test_error_handling_with_streaming_context(self):
         """Test with_streaming_context wrapper function."""
-        
+
         def test_operation(value, streaming_context=None):
             if streaming_context:
                 # Register a dummy generator for cleanup testing
                 def dummy_gen():
                     yield value
+
                 streaming_context.register_generator(dummy_gen())
             return value * 2
-        
+
         # Test successful operation
         result = with_streaming_context(test_operation, 5, verbose=True)
         assert result == 10
-        
+
         # Test operation without streaming_context parameter
         def simple_operation(value):
             return value + 1
-        
+
         result = with_streaming_context(simple_operation, 5)
         assert result == 6
 
@@ -1543,7 +1554,7 @@ class TestUtilityIntegration:
 
         # Use metadata configuration with actual streaming
         generator = stream_augmentation_chain(
-            num_samples=metadata.total_samples, # pyright: ignore[reportArgumentType]
+            num_samples=metadata.total_samples,  # pyright: ignore[reportArgumentType]
             config=metadata.config,
             chunk_size=metadata.chunk_size,
         )
@@ -1589,18 +1600,18 @@ class TestStreamingComprehensive:
 
     def test_streaming_deterministic_behavior_comprehensive(self):
         """Comprehensive test of deterministic behavior across streaming operations."""
-        
+
         # Test multiple runs of the same streaming operation
         runs = []
         for _ in range(3):
             generator = stream_augmentation_chain(50)
             run_results = list(generator)
             runs.append(run_results)
-        
+
         # All runs should be identical
         for i in range(1, len(runs)):
             assert runs[i] == runs[0], f"Run {i} differs from run 0"
-        
+
         # Test chunked streaming determinism
         chunked_runs = []
         for chunk_size in [1, 5, 10, 25]:
@@ -1609,47 +1620,49 @@ class TestStreamingComprehensive:
             # Flatten chunks for comparison
             flattened = [item for chunk in chunks for item in chunk]
             chunked_runs.append(flattened)
-        
+
         # All chunked runs should produce the same flattened results
         for i in range(1, len(chunked_runs)):
-            assert chunked_runs[i] == chunked_runs[0], f"Chunked run with chunk_size differs"
-        
+            assert chunked_runs[i] == chunked_runs[0], "Chunked run with chunk_size differs"
+
         # Chunked results should match non-chunked results
-        assert chunked_runs[0] == runs[0], "Chunked streaming produces different results than non-chunked"
+        assert chunked_runs[0] == runs[0], (
+            "Chunked streaming produces different results than non-chunked"
+        )
 
     def test_streaming_vs_batch_equivalence_comprehensive(self):
         """Comprehensive test of streaming vs batch equivalence."""
-        
+
         test_configs = [
             AugmentationConfig(),  # Default
             AugmentationConfig(rotation_range=(-45, 45)),  # Custom rotation
             AugmentationConfig(augmentation_depth=5),  # Different depth
             AugmentationConfig(
-                rotation_range=(-90, 90),
-                brightness_range=(0.5, 1.5),
-                augmentation_depth=25
+                rotation_range=(-90, 90), brightness_range=(0.5, 1.5), augmentation_depth=25
             ),  # Complex config
         ]
-        
+
         test_sizes = [1, 5, 10, 50, 100]
-        
+
         for config in test_configs:
             for size in test_sizes:
                 # Generate using batch method
                 batch_results = generate_augmentation_chain(size, config=config)
-                
+
                 # Generate using streaming method
                 stream_generator = stream_augmentation_chain(size, config=config)
                 stream_results = list(stream_generator)
-                
+
                 # Results should be identical
                 assert len(batch_results) == len(stream_results), f"Length mismatch for size {size}"
-                assert batch_results == stream_results, f"Content mismatch for size {size} with config {config}"
-                
+                assert batch_results == stream_results, (
+                    f"Content mismatch for size {size} with config {config}"
+                )
+
                 # Test statistics equivalence
                 batch_stats = compute_statistics(batch_results)
                 stream_stats = compute_streaming_statistics(list_to_generator(batch_results))
-                
+
                 # Statistics should be nearly identical (allowing for floating-point precision)
                 for key in ["rotation", "brightness", "noise", "scale", "contrast"]:
                     assert abs(batch_stats[key]["mean"] - stream_stats[key]["mean"]) < 1e-12
@@ -1660,25 +1673,35 @@ class TestStreamingComprehensive:
 
     def test_streaming_io_comprehensive_round_trip(self):
         """Comprehensive test of streaming I/O round-trip operations."""
-        
-        import tempfile
+
         import os
-        
+        import tempfile
+
         test_cases = [
             {"size": 10, "config": None, "include_stats": True, "buffer_size": 5},
-            {"size": 50, "config": AugmentationConfig(rotation_range=(-45, 45)), "include_stats": False, "buffer_size": 10},
-            {"size": 100, "config": AugmentationConfig(augmentation_depth=20), "include_stats": True, "buffer_size": 25},
+            {
+                "size": 50,
+                "config": AugmentationConfig(rotation_range=(-45, 45)),
+                "include_stats": False,
+                "buffer_size": 10,
+            },
+            {
+                "size": 100,
+                "config": AugmentationConfig(augmentation_depth=20),
+                "include_stats": True,
+                "buffer_size": 25,
+            },
             {"size": 1, "config": None, "include_stats": True, "buffer_size": 1},  # Single item
         ]
-        
+
         for case in test_cases:
             with tempfile.TemporaryDirectory() as tmpdir:
                 filepath = os.path.join(tmpdir, f"test_{case['size']}.json")
-                
+
                 # Generate original data
                 original_generator = stream_augmentation_chain(case["size"], config=case["config"])
                 original_data = list(original_generator)
-                
+
                 # Save using streaming
                 save_generator = list_to_generator(original_data)
                 save_augmentation_stream(
@@ -1686,33 +1709,35 @@ class TestStreamingComprehensive:
                     filepath,
                     config=case["config"],
                     include_stats=case["include_stats"],
-                    buffer_size=case["buffer_size"]
+                    buffer_size=case["buffer_size"],
                 )
-                
+
                 # Verify file exists
                 assert os.path.exists(filepath)
-                
+
                 # Load using streaming (individual items)
                 loaded_individual = list(load_augmentation_stream(filepath, chunk_size=1))
-                
+
                 # Load using streaming (chunks)
-                chunk_size = max(2, case["size"] // 3) or 2  # Ensure chunk_size > 1 to get actual chunks
+                chunk_size = (
+                    max(2, case["size"] // 3) or 2
+                )  # Ensure chunk_size > 1 to get actual chunks
                 loaded_chunks = list(load_augmentation_stream(filepath, chunk_size=chunk_size))
                 loaded_from_chunks = [item for chunk in loaded_chunks for item in chunk]
-                
+
                 # All loading methods should produce the same results
                 assert loaded_individual == original_data
                 assert loaded_from_chunks == original_data
-                
+
                 # Verify file structure
-                with open(filepath, 'r') as f:
+                with open(filepath) as f:
                     file_data = json.load(f)
-                
+
                 assert "metadata" in file_data
                 assert "augmentations" in file_data
                 assert file_data["metadata"]["streaming"] is True
                 assert len(file_data["augmentations"]) == case["size"]
-                
+
                 if case["include_stats"]:
                     assert "statistics" in file_data
                     # Verify statistics are reasonable
@@ -1725,85 +1750,88 @@ class TestStreamingComprehensive:
 
     def test_streaming_performance_constant_memory(self):
         """Test that streaming operations maintain constant memory usage."""
-        
+
         # This test verifies that streaming doesn't accumulate memory
         # by processing increasingly large datasets and checking that
         # memory usage doesn't grow linearly
-        
+
         try:
             import psutil
+
             psutil_available = True
         except ImportError:
             psutil_available = False
-        
+
         if not psutil_available:
             # Skip this test if psutil is not available
             return
-        
+
         import gc
-        
+
         # Force garbage collection before starting
         gc.collect()
-        
+
         initial_memory = get_current_memory_usage()
         if not initial_memory:
             return  # Skip if we can't get memory info
-        
+
         memory_readings = []
         dataset_sizes = [100, 500, 1000, 2000]  # Increasing sizes
-        
+
         for size in dataset_sizes:
             # Force garbage collection before each test
             gc.collect()
-            
+
             # Process the dataset using streaming
             generator = stream_augmentation_chain(size)
             processed_count = 0
-            
+
             for params in generator:
                 processed_count += 1
                 # Process the parameters (simulate work)
                 _ = params["rotation"] + params["brightness"]
-            
+
             assert processed_count == size
-            
+
             # Measure memory after processing
             current_memory = get_current_memory_usage()
             if current_memory:
                 memory_readings.append(current_memory["rss"])
-        
+
         # Verify that memory usage doesn't grow linearly with dataset size
         if len(memory_readings) >= 2:
             # Memory growth should be bounded
             max_memory = max(memory_readings)
             min_memory = min(memory_readings)
-            
+
             # Allow for some variation but not linear growth
             growth_ratio = max_memory / min_memory if min_memory > 0 else 1
-            assert growth_ratio < 1.5, f"Memory grew by {growth_ratio:.2f}x across dataset sizes, indicating potential memory leak"
+            assert growth_ratio < 1.5, (
+                f"Memory grew by {growth_ratio:.2f}x across dataset sizes, indicating potential memory leak"
+            )
 
     def test_streaming_early_termination_memory_cleanup(self):
         """Test that early termination of streaming operations cleans up properly."""
-        
+
         # Create a large generator but only consume part of it
         large_generator = stream_augmentation_chain(10000)
-        
+
         # Consume only first 100 items
         consumed = []
         for i, params in enumerate(large_generator):
             consumed.append(params)
             if i >= 99:  # Stop after 100 items
                 break
-        
+
         assert len(consumed) == 100
-        
+
         # Verify that the generator can be properly cleaned up
         try:
             safe_cleanup_generator(large_generator)
         except ResourceCleanupError:
             # This is acceptable - cleanup might fail but shouldn't crash
             pass
-        
+
         # Verify that we can create new generators without issues
         new_generator = stream_augmentation_chain(50)
         new_results = list(new_generator)
@@ -1811,7 +1839,7 @@ class TestStreamingComprehensive:
 
     def test_streaming_statistics_numerical_stability(self):
         """Test numerical stability of streaming statistics computation."""
-        
+
         # Test with values that might cause numerical instability
         def create_test_generator(values):
             for i, value in enumerate(values):
@@ -1821,51 +1849,71 @@ class TestStreamingComprehensive:
                     "noise": 0.0,
                     "scale": 1.0,
                     "contrast": 1.0,
-                    "hash": f"test{i}"
+                    "hash": f"test{i}",
                 }
-        
+
         # Test case 1: Very large values
         large_values = [1e6, 1e6 + 1, 1e6 + 2, 1e6 + 3, 1e6 + 4]
         large_generator = create_test_generator(large_values)
         large_stats = compute_streaming_statistics(large_generator)
-        
+
         # Compare with batch computation
-        large_params = [{"rotation": v, "brightness": 1.0, "noise": 0.0, "scale": 1.0, "contrast": 1.0, "hash": f"test{i}"} 
-                       for i, v in enumerate(large_values)]
+        large_params = [
+            {
+                "rotation": v,
+                "brightness": 1.0,
+                "noise": 0.0,
+                "scale": 1.0,
+                "contrast": 1.0,
+                "hash": f"test{i}",
+            }
+            for i, v in enumerate(large_values)
+        ]
         large_batch_stats = compute_statistics(large_params)
-        
+
         # Should be nearly identical despite large values
         assert abs(large_stats["rotation"]["mean"] - large_batch_stats["rotation"]["mean"]) < 1e-6
         assert abs(large_stats["rotation"]["stdev"] - large_batch_stats["rotation"]["stdev"]) < 1e-6
-        
+
         # Test case 2: Very small values
         small_values = [1e-6, 2e-6, 3e-6, 4e-6, 5e-6]
         small_generator = create_test_generator(small_values)
         small_stats = compute_streaming_statistics(small_generator)
-        
-        small_params = [{"rotation": v, "brightness": 1.0, "noise": 0.0, "scale": 1.0, "contrast": 1.0, "hash": f"test{i}"} 
-                       for i, v in enumerate(small_values)]
+
+        small_params = [
+            {
+                "rotation": v,
+                "brightness": 1.0,
+                "noise": 0.0,
+                "scale": 1.0,
+                "contrast": 1.0,
+                "hash": f"test{i}",
+            }
+            for i, v in enumerate(small_values)
+        ]
         small_batch_stats = compute_statistics(small_params)
-        
+
         # Should be nearly identical despite small values
         assert abs(small_stats["rotation"]["mean"] - small_batch_stats["rotation"]["mean"]) < 1e-12
-        assert abs(small_stats["rotation"]["stdev"] - small_batch_stats["rotation"]["stdev"]) < 1e-12
+        assert (
+            abs(small_stats["rotation"]["stdev"] - small_batch_stats["rotation"]["stdev"]) < 1e-12
+        )
 
     def test_streaming_range_equivalence(self):
         """Test equivalence between stream_augmentation_chain and stream_augmentation_range."""
-        
+
         # Test various ranges
         test_cases = [
-            (0, 10),    # Start from 0
-            (5, 15),    # Start from middle
-            (100, 150), # Large start
-            (0, 1),     # Single item
-            (42, 42),   # Empty range
+            (0, 10),  # Start from 0
+            (5, 15),  # Start from middle
+            (100, 150),  # Large start
+            (0, 1),  # Single item
+            (42, 42),  # Empty range
         ]
-        
+
         for start_id, end_id in test_cases:
             num_samples = end_id - start_id
-            
+
             if num_samples <= 0:
                 # Test empty ranges
                 chain_results = list(stream_augmentation_chain(0, start_id=start_id))
@@ -1875,10 +1923,10 @@ class TestStreamingComprehensive:
                 # Test non-empty ranges
                 chain_results = list(stream_augmentation_chain(num_samples, start_id=start_id))
                 range_results = list(stream_augmentation_range(start_id, end_id))
-                
+
                 assert len(chain_results) == len(range_results) == num_samples
                 assert chain_results == range_results
-                
+
                 # Verify that the sample IDs are correct by checking hash consistency
                 for i, params in enumerate(chain_results):
                     expected_sample_id = start_id + i
@@ -1887,42 +1935,42 @@ class TestStreamingComprehensive:
 
     def test_streaming_with_all_presets(self):
         """Test streaming functionality with all preset configurations."""
-        
-        import tempfile
+
         import os
-        
+        import tempfile
+
         for preset_name in ["mild", "moderate", "aggressive"]:
             config = get_preset(preset_name)
-            
+
             # Test streaming generation
             stream_results = list(stream_augmentation_chain(20, config=config))
             batch_results = generate_augmentation_chain(20, config=config)
-            
+
             # Results should be identical
             assert stream_results == batch_results
-            
+
             # Test streaming I/O
             with tempfile.TemporaryDirectory() as tmpdir:
                 filepath = os.path.join(tmpdir, f"{preset_name}_test.json")
-                
+
                 # Save using streaming
                 generator = stream_augmentation_chain(15, config=config)
                 save_augmentation_stream(generator, filepath, config=config, include_stats=True)
-                
+
                 # Load using streaming
                 loaded = list(load_augmentation_stream(filepath, chunk_size=1))
-                
+
                 # Verify results match expected
                 expected = generate_augmentation_chain(15, config=config)
                 assert loaded == expected
-                
+
                 # Verify statistics are computed correctly
-                with open(filepath, 'r') as f:
+                with open(filepath) as f:
                     file_data = json.load(f)
-                
+
                 assert "statistics" in file_data
                 stats = file_data["statistics"]
-                
+
                 # Verify statistics are within preset ranges
                 if preset_name == "mild":
                     assert -15 <= stats["rotation"]["min"] <= stats["rotation"]["max"] <= 15
@@ -1933,102 +1981,96 @@ class TestStreamingComprehensive:
 
     def test_streaming_large_dataset_simulation(self):
         """Test streaming with simulated large dataset scenarios."""
-        
+
         # Test various large dataset sizes without actually consuming excessive memory
         large_sizes = [10000, 50000, 100000]
-        
+
         for size in large_sizes:
             # Create generator but don't consume all at once
             generator = stream_augmentation_chain(size)
-            
+
             # Sample from the generator to verify it works
             sample_size = min(100, size)
             sample = []
-            
+
             for i, params in enumerate(generator):
                 sample.append(params)
                 if i >= sample_size - 1:
                     break
-            
+
             assert len(sample) == sample_size
-            
+
             # Verify the samples are correct
             expected_sample = [gen_augmentation_params(i) for i in range(sample_size)]
             assert sample == expected_sample
-            
+
             # Test chunked streaming with large datasets
             chunked_generator = stream_augmentation_chain(size, chunk_size=1000)
-            
+
             # Take first few chunks
             chunks_taken = 0
             total_items = 0
-            
+
             for chunk in chunked_generator:
                 chunks_taken += 1
                 total_items += len(chunk)
-                
+
                 # Verify chunk size (except possibly the last chunk)
                 if chunks_taken == 1:  # First chunk should be full size
                     assert len(chunk) == 1000
-                
+
                 if chunks_taken >= 5:  # Take only first 5 chunks
                     break
-            
+
             assert chunks_taken == 5
             assert total_items == 5000  # 5 chunks * 1000 items each
 
     def test_streaming_comprehensive_integration(self):
         """Comprehensive integration test combining all streaming features."""
-        
-        import tempfile
+
         import os
-        
+        import tempfile
+
         with tempfile.TemporaryDirectory() as tmpdir:
             # Test scenario: Generate large dataset, save with streaming, load with streaming,
             # compute statistics, and verify everything matches batch operations
-            
+
             dataset_size = 200
             config = AugmentationConfig(
-                rotation_range=(-60, 60),
-                brightness_range=(0.6, 1.4),
-                augmentation_depth=15
+                rotation_range=(-60, 60), brightness_range=(0.6, 1.4), augmentation_depth=15
             )
-            
+
             # Step 1: Generate using batch method for reference
             batch_reference = generate_augmentation_chain(dataset_size, config=config)
             batch_stats = compute_statistics(batch_reference)
-            
+
             # Step 2: Generate using streaming method
             stream_generator = stream_augmentation_chain(dataset_size, config=config)
             stream_results = list(stream_generator)
-            
+
             # Verify streaming matches batch
             assert stream_results == batch_reference
-            
+
             # Step 3: Save using streaming I/O
             filepath = os.path.join(tmpdir, "comprehensive_test.json")
             save_generator = list_to_generator(stream_results)
             save_augmentation_stream(
-                save_generator,
-                filepath,
-                config=config,
-                include_stats=True,
-                buffer_size=50
+                save_generator, filepath, config=config, include_stats=True, buffer_size=50
             )
-            
+
             # Step 4: Load using streaming I/O (individual items)
             loaded_individual = list(load_augmentation_stream(filepath, chunk_size=1))
             assert loaded_individual == batch_reference
-            
+
             # Step 5: Load using streaming I/O (chunks)
             loaded_chunks = list(load_augmentation_stream(filepath, chunk_size=25))
             loaded_from_chunks = [item for chunk in loaded_chunks for item in chunk]
             assert loaded_from_chunks == batch_reference
-            
+
             # Step 6: Compute streaming statistics
             stats_generator = list_to_generator(stream_results)
             streaming_stats = compute_streaming_statistics(stats_generator)
-            
+
             # Verify statistics match
             for key in ["rotation", "brightness", "noise", "scale", "contrast"]:
                 assert abs(streaming_stats[key]["mean"] - batch_stats[key]["mean"]) < 1e-12
@@ -2036,11 +2078,11 @@ class TestStreamingComprehensive:
                 assert streaming_stats[key]["min"] == batch_stats[key]["min"]
                 assert streaming_stats[key]["max"] == batch_stats[key]["max"]
                 assert streaming_stats[key]["count"] == batch_stats[key]["count"]
-            
+
             # Step 7: Verify file statistics match computed statistics
-            with open(filepath, 'r') as f:
+            with open(filepath) as f:
                 file_data = json.load(f)
-            
+
             file_stats = file_data["statistics"]
             for key in ["rotation", "brightness", "noise", "scale", "contrast"]:
                 assert abs(file_stats[key]["mean"] - batch_stats[key]["mean"]) < 1e-12
@@ -2048,16 +2090,18 @@ class TestStreamingComprehensive:
                 assert file_stats[key]["min"] == batch_stats[key]["min"]
                 assert file_stats[key]["max"] == batch_stats[key]["max"]
                 assert file_stats[key]["count"] == batch_stats[key]["count"]
-            
+
             # Step 8: Test range streaming equivalence
             range_results = list(stream_augmentation_range(0, dataset_size, config=config))
             assert range_results == batch_reference
-            
+
             # Step 9: Test chunked streaming equivalence
-            chunked_generator = stream_augmentation_chain(dataset_size, config=config, chunk_size=40)
+            chunked_generator = stream_augmentation_chain(
+                dataset_size, config=config, chunk_size=40
+            )
             chunked_results = [item for chunk in chunked_generator for item in chunk]
             assert chunked_results == batch_reference
-            
+
             # Step 10: Test utility functions
             generator_copy = list_to_generator(batch_reference)
             converted_back = generator_to_list(generator_copy)
