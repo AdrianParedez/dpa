@@ -98,7 +98,7 @@ class TestDistributedTrainingIntegration:
 
             # Verify no gaps or overlaps
             covered_samples = set()
-            for rank, (start_id, end_id) in enumerate(all_ranges):
+            for _rank, (start_id, end_id) in enumerate(all_ranges):
                 # Verify range validity
                 assert start_id >= 0
                 assert end_id >= start_id
@@ -160,7 +160,7 @@ class TestDistributedTrainingIntegration:
         for rank in range(world_size):
             assert len(run1_params[rank]) == len(run2_params[rank])
 
-            for i, (params1, params2) in enumerate(zip(run1_params[rank], run2_params[rank])):
+            for i, (params1, params2) in enumerate(zip(run1_params[rank], run2_params[rank], strict=False)):
                 # All parameters should be identical
                 assert params1 == params2, f"Rank {rank}, sample {i}: parameters differ"
 
@@ -343,7 +343,7 @@ class TestDistributedTrainingIntegration:
             total_items += rank_items
 
             # Verify chunk sizes
-            for i, chunk in enumerate(chunks[:-1]):  # All but last chunk
+            for _i, chunk in enumerate(chunks[:-1]):  # All but last chunk
                 assert len(chunk) == chunk_size
 
             # Last chunk may be smaller

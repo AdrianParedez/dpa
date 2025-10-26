@@ -1756,9 +1756,8 @@ class TestStreamingComprehensive:
         # memory usage doesn't grow linearly
 
         try:
-            import psutil
-
-            psutil_available = True
+            import importlib.util
+            psutil_available = importlib.util.find_spec("psutil") is not None
         except ImportError:
             psutil_available = False
 

@@ -253,7 +253,7 @@ def demo_memory_warnings_and_recovery():
     print("=== Memory Warnings and Recovery ===\n")
 
     # Create batcher with warning thresholds
-    batcher = MemoryAwareBatcher(max_memory_mb=100, min_batch_size=1)
+    MemoryAwareBatcher(max_memory_mb=100, min_batch_size=1)
 
     print("Demonstrating memory warning system:")
     print("Different warning levels based on memory usage\n")
@@ -268,7 +268,7 @@ def demo_memory_warnings_and_recovery():
     ]
 
     for memory_percent, description in memory_levels:
-        memory_info = {
+        {
             "total_mb": 1000,
             "used_mb": memory_percent * 10,
             "available_mb": (100 - memory_percent) * 10,

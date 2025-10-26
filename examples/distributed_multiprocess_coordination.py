@@ -196,7 +196,7 @@ def demo_parameter_uniqueness_verification():
 
     # Check for uniqueness
     unique_params = set()
-    for rank, params in rank_parameters.items():
+    for _rank, params in rank_parameters.items():
         param_signature = (
             round(params["rotation"], 6),
             round(params["brightness"], 6),

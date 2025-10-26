@@ -262,7 +262,7 @@ def demo_distributed_batch_processing():
 
     rank1_samples = list(rank1_stream)
     print(f"Rank 1 would process {len(rank1_samples)} samples:")
-    for i, params in enumerate(rank1_samples[:5]):  # Show first 5
+    for _i, params in enumerate(rank1_samples[:5]):  # Show first 5
         sample_id = params.get("sample_id", "unknown")
         print(f"  Sample {sample_id}: rotation={params['rotation']:.2f}")
 

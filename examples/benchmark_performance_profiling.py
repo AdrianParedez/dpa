@@ -37,7 +37,7 @@ def demo_basic_profiling():
     profiler.start_profiling("parameter_generation")
 
     for sample_id in range(num_samples):
-        params = gen_augmentation_params(sample_id, config)
+        gen_augmentation_params(sample_id, config)
 
         # Simulate some processing
         time.sleep(0.0001)  # 0.1ms per sample
@@ -82,12 +82,12 @@ def demo_function_profiling_decorator():
     # Test regular generation
     print("Regular parameter generation:")
     for i in range(10):
-        params = generate_single_param(i, config)
+        generate_single_param(i, config)
 
     # Test distributed generation
     print("Distributed parameter generation:")
     for i in range(10):
-        params = generate_distributed_param(i, rank=0, config=config)
+        generate_distributed_param(i, rank=0, config=config)
 
     # Get profiling summary
     profile_summary = profiler.get_profile_summary()
@@ -118,7 +118,7 @@ def demo_streaming_profiling():
     profiler.start_profiling("streaming_generation")
 
     param_stream = stream_augmentation_chain(num_samples, config)
-    streaming_params = list(param_stream)
+    list(param_stream)
 
     streaming_result = profiler.end_profiling("streaming_generation")
 
@@ -364,7 +364,7 @@ def demo_performance_regression_detection():
     print("1. Establishing baseline performance...")
     baseline_times = []
 
-    for run in range(5):
+    for _run in range(5):
         with measure_time() as timer:
             params_list = []
             for sample_id in range(num_samples):
@@ -383,7 +383,7 @@ def demo_performance_regression_detection():
     print("2. Testing current performance...")
     current_times = []
 
-    for run in range(5):
+    for _run in range(5):
         with measure_time() as timer:
             params_list = []
             for sample_id in range(num_samples):

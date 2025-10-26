@@ -32,7 +32,7 @@ class TestBatchProcessingIntegration:
 
     def create_test_param_generator(self, count: int) -> Generator[dict[str, Any], None, None]:
         """Create a test parameter generator that mimics DPA output."""
-        config = AugmentationConfig()
+        AugmentationConfig()
         for i in range(count):
             yield {
                 "sample_id": i,
@@ -134,8 +134,7 @@ class TestBatchProcessingIntegration:
         # Flatten chunks into individual parameters for batch processing
         def flatten_chunks(chunked_generator):
             for chunk in chunked_generator:
-                for item in chunk:
-                    yield item
+                yield from chunk
 
         flattened_stream = flatten_chunks(chunked_stream)
 
@@ -471,7 +470,7 @@ class TestBatchProcessingIntegration:
         processor = BatchProcessor(BatchStrategy.ADAPTIVE, batch_config)
 
         # Process multiple batches to build performance history
-        for iteration in range(3):
+        for _iteration in range(3):
             test_generator = self.create_test_param_generator(200)
             batches = list(processor.process_stream(test_generator))
 
@@ -538,8 +537,7 @@ class TestBatchProcessingIntegration:
         # Flatten chunks for batch processing
         def flatten_dpa_chunks(chunked_generator):
             for chunk in chunked_generator:
-                for item in chunk:
-                    yield item
+                yield from chunk
 
         flattened_stream = flatten_dpa_chunks(dpa_stream)
 

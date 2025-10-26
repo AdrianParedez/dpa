@@ -19,6 +19,7 @@ from src.benchmark import (
     MeasurementError,
     PerformanceMetrics,
     PerformanceProfiler,
+    ProfilingError,
     benchmark_function,
     get_system_info,
     measure_memory,
@@ -46,7 +47,7 @@ class TestBenchmarkingIntegration:
 
         # Call the profiled function multiple times
         results = []
-        for i in range(10):
+        for _i in range(10):
             result = profile_gen_params()
             results.append(result)
 
@@ -326,7 +327,7 @@ class TestBenchmarkingIntegration:
 
         # Verify statistical accuracy by checking absolute metrics
         baseline_throughput = None
-        for config_name, metrics in report.metrics_comparison.items():
+        for _config_name, metrics in report.metrics_comparison.items():
             abs_metrics = metrics["absolute_metrics"]
             current_throughput = abs_metrics["throughput_samples_per_second"]
 
@@ -590,14 +591,14 @@ class TestBenchmarkingIntegration:
 
         # Test duplicate operation error
         profiler.start_profiling("test_op")
-        with pytest.raises(Exception):  # ProfilingError
+        with pytest.raises(ProfilingError):
             profiler.start_profiling("test_op")
 
         # Clean up
         profiler.end_profiling("test_op")
 
         # Test ending non-existent operation
-        with pytest.raises(Exception):  # ProfilingError
+        with pytest.raises(ProfilingError):
             profiler.end_profiling("nonexistent_op")
 
     def test_benchmark_results_history_management(self):
@@ -723,7 +724,7 @@ class TestBenchmarkingIntegration:
         assert len(report.recommendations) > 0
 
         # Verify performance improvements were calculated
-        for config_name, improvement in report.performance_improvements.items():
+        for _config_name, improvement in report.performance_improvements.items():
             assert isinstance(improvement, float)
             # Improvement can be positive or negative
             assert -1000 <= improvement <= 1000  # Reasonable range

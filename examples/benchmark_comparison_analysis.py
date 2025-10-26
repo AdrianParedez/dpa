@@ -72,11 +72,11 @@ def demo_configuration_comparison():
         print()
 
     # Generate comparison report
-    comparison_report = runner.compare_configurations(
+    runner.compare_configurations(
         [
             {"name": name, "config": config, "metrics": metrics}
             for name, (config, metrics) in zip(
-                configs.keys(), zip(configs.values(), results.values())
+                configs.keys(), zip(configs.values(), results.values(), strict=False), strict=False
             )
         ]
     )
@@ -119,7 +119,7 @@ def demo_batch_strategy_comparison():
     print("\n=== Batch Strategy Comparison Demo ===\n")
 
     num_samples = 200
-    config = get_preset("moderate")
+    get_preset("moderate")
 
     # Define batch configurations to compare
     batch_configs = {

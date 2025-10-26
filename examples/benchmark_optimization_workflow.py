@@ -93,7 +93,7 @@ class OptimizationWorkflow:
             # Run operation multiple times
             iterations = 50 if "streaming" not in operation_name else 5
             for _ in range(iterations):
-                result = operation_func()
+                operation_func()
 
             profile_result = self.profiler.end_profiling(operation_name)
             bottleneck_results[operation_name] = profile_result
@@ -426,10 +426,10 @@ def demo_complete_optimization_workflow():
     num_samples = 100  # Use smaller number for demo
 
     # Step 1: Baseline
-    baseline = workflow.step1_baseline_measurement(num_samples)
+    workflow.step1_baseline_measurement(num_samples)
 
     # Step 2: Identify bottlenecks
-    bottlenecks = workflow.step2_identify_bottlenecks(num_samples)
+    workflow.step2_identify_bottlenecks(num_samples)
 
     # Step 3: Optimize configuration
     optimal_config_name, optimal_config = workflow.step3_configuration_optimization(num_samples)
@@ -443,7 +443,7 @@ def demo_complete_optimization_workflow():
     final_config_name, final_config = workflow.step5_fine_tuning(num_samples, optimal_config)
 
     # Step 6: Validate
-    final_metrics = workflow.step6_validation(num_samples * 3, final_config)
+    workflow.step6_validation(num_samples * 3, final_config)
 
     # Generate report
     workflow.generate_optimization_report()

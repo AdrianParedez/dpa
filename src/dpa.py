@@ -1093,7 +1093,7 @@ def save_augmentation_stream(
             except GeneratorExhaustionError:
                 raise PartialWriteError(
                     "Generator exhausted unexpectedly during statistics computation", 0
-                )
+                ) from None
             except Exception as e:
                 raise PartialWriteError(f"Failed to compute statistics and save: {e}", 0) from e
 
@@ -2391,7 +2391,8 @@ def process_augmentation_batches(
 
     # Use identity function if no processor provided
     if processor_func is None:
-        processor_func = lambda batch: batch
+        def processor_func(batch):
+            return batch
 
     # Create batch processor
     batch_processor = BatchProcessor(batch_config.strategy, batch_config)
@@ -3100,9 +3101,9 @@ def benchmark_augmentation_performance(
         for strategy in strategies:
             try:
 
-                def batch_benchmark():
+                def batch_benchmark(batch_strategy=strategy):
                     generator = stream_augmentation_chain(num_samples, config=config, verbose=False)
-                    return list(convert_stream_to_batches(generator, batch_strategy=strategy))
+                    return list(convert_stream_to_batches(generator, batch_strategy=batch_strategy))
 
                 batch_result = benchmark_function(
                     batch_benchmark, iterations=max(1, iterations // 2)

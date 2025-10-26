@@ -233,7 +233,7 @@ def measure_memory() -> Generator[dict[str, int], None, None]:
         result["delta_mb"] = result["delta_rss_mb"]  # Primary delta metric
 
 
-def benchmark_function(func: Callable[P, T], iterations: int = 100) -> BenchmarkResult:
+def benchmark_function[**P, T](func: Callable[P, T], iterations: int = 100) -> BenchmarkResult:
     """Benchmark a function with statistical analysis.
 
     Args:
@@ -465,7 +465,7 @@ class PerformanceProfiler:
         for operation_name, results in self._completed_operations.items():
             if results:
                 # Get the most recent result, but aggregate statistics
-                latest_result = results[-1]
+                results[-1]
 
                 # Calculate aggregate statistics across all calls
                 total_time = sum(r.total_time_seconds for r in results)
@@ -556,7 +556,7 @@ class BenchmarkRunner:
             memory_deltas = []
             cpu_samples = []
 
-            for i in range(self.config.iterations):
+            for _i in range(self.config.iterations):
                 # Measure CPU before operation
                 cpu_before = psutil.cpu_percent(interval=None) if self.config.measure_cpu else 0.0
 
@@ -636,7 +636,7 @@ class BenchmarkRunner:
             memory_deltas = []
             cpu_samples = []
 
-            for i in range(self.config.iterations):
+            for _i in range(self.config.iterations):
                 # Measure CPU before operation
                 cpu_before = psutil.cpu_percent(interval=None) if self.config.measure_cpu else 0.0
 
@@ -647,13 +647,13 @@ class BenchmarkRunner:
                                 num_samples, config, chunk_size=chunk_size
                             )
                             # Consume the entire stream
-                            consumed_count = sum(1 for _ in stream)
+                            sum(1 for _ in stream)
                         memory_deltas.append(memory["delta_mb"])
                     else:
                         stream = stream_augmentation_chain(
                             num_samples, config, chunk_size=chunk_size
                         )
-                        consumed_count = sum(1 for _ in stream)
+                        sum(1 for _ in stream)
                         memory_deltas.append(0.0)
 
                 # Measure CPU after operation
@@ -729,7 +729,7 @@ class BenchmarkRunner:
             memory_deltas = []
             cpu_samples = []
 
-            for i in range(self.config.iterations):
+            for _i in range(self.config.iterations):
                 # Measure CPU before operation
                 cpu_before = psutil.cpu_percent(interval=None) if self.config.measure_cpu else 0.0
 
@@ -740,13 +740,13 @@ class BenchmarkRunner:
                             param_stream = stream_augmentation_chain(num_samples, aug_config)
                             batch_stream = processor.process_stream(param_stream)
                             # Consume all batches
-                            batch_count = sum(1 for batch in batch_stream)
+                            sum(1 for batch in batch_stream)
                         memory_deltas.append(memory["delta_mb"])
                     else:
                         processor = BatchProcessor(batch_config.strategy, batch_config)
                         param_stream = stream_augmentation_chain(num_samples, aug_config)
                         batch_stream = processor.process_stream(param_stream)
-                        batch_count = sum(1 for batch in batch_stream)
+                        sum(1 for batch in batch_stream)
                         memory_deltas.append(0.0)
 
                 # Measure CPU after operation

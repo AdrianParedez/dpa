@@ -239,7 +239,7 @@ def demo_memory_efficiency():
     # Process only first 10 samples to show we can handle large datasets
     print("  Processing first 10 samples from large generator...")
     sample_count = 0
-    for params in large_generator:
+    for _params in large_generator:
         sample_count += 1
         if sample_count >= 10:
             break
