@@ -8,6 +8,7 @@ memory usage tracking, and statistical analysis capabilities.
 
 from __future__ import annotations
 
+import logging
 import statistics
 import time
 from collections import defaultdict
@@ -263,8 +264,8 @@ def benchmark_function[**P, T](func: Callable[P, T], iterations: int = 100) -> B
         # Warmup run
         try:
             func()
-        except Exception:
-            pass  # Ignore warmup failures
+        except Exception as e:
+            logging.debug(f"Warmup run failed (expected): {e}")
 
         # Benchmark runs
         for i in range(iterations):
@@ -353,9 +354,9 @@ class PerformanceProfiler:
                     process = psutil.Process()
                     memory_info = process.memory_info()
                     start_data["start_memory_mb"] = memory_info.rss / (1024 * 1024)
-                except Exception:
+                except (ImportError, AttributeError, OSError, Exception) as e:
                     # If memory tracking fails, continue without it
-                    pass
+                    logging.debug(f"Memory tracking unavailable: {e}")
 
             self._active_operations[operation_name] = start_data
 
@@ -548,8 +549,8 @@ class BenchmarkRunner:
             for _ in range(self.config.warmup_iterations):
                 try:
                     gen_augmentation_params(0, config)
-                except Exception:
-                    pass  # Ignore warmup failures
+                except Exception as e:
+                    logging.debug(f"Generation warmup failed (expected): {e}")
 
             # Benchmark runs
             times = []
@@ -628,8 +629,8 @@ class BenchmarkRunner:
                         min(100, num_samples), config, chunk_size=chunk_size
                     )
                     list(warmup_stream)  # Consume the generator
-                except Exception:
-                    pass  # Ignore warmup failures
+                except Exception as e:
+                    logging.debug(f"Streaming warmup failed (expected): {e}")
 
             # Benchmark runs
             times = []
@@ -721,8 +722,8 @@ class BenchmarkRunner:
                     param_stream = stream_augmentation_chain(min(100, num_samples), aug_config)
                     batch_stream = processor.process_stream(param_stream)
                     list(batch_stream)  # Consume the generator
-                except Exception:
-                    pass  # Ignore warmup failures
+                except Exception as e:
+                    logging.debug(f"Batch processing warmup failed (expected): {e}")
 
             # Benchmark runs
             times = []
