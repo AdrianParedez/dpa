@@ -761,28 +761,6 @@ class TestBenchmarkRunner:
 
     def test_percentage_calculation_division_by_zero(self):
         """Test percentage calculation with zero baseline values."""
-        config = BenchmarkConfig(iterations=2, warmup_iterations=1)
-        runner = BenchmarkRunner(config)
-
-        # Create mock metrics with zero baseline values
-        from src.benchmark import PerformanceMetrics
-
-        baseline_metrics = PerformanceMetrics(
-            throughput_samples_per_second=0.0,  # Zero baseline
-            avg_latency_ms=0.0,  # Zero baseline
-            memory_usage_mb=0.0,  # Zero baseline
-            cpu_usage_percent=0.0,  # Zero baseline
-            total_time_seconds=1.0,
-        )
-
-        comparison_metrics = PerformanceMetrics(
-            throughput_samples_per_second=100.0,
-            avg_latency_ms=10.0,
-            memory_usage_mb=50.0,
-            cpu_usage_percent=25.0,
-            total_time_seconds=1.0,
-        )
-
         # Test the safe percentage calculation directly
         from src.benchmark import safe_percentage_change
 

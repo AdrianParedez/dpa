@@ -266,7 +266,7 @@ def measure_memory() -> Generator[dict[str, int], None, None]:
         result["delta_mb"] = result["delta_rss_mb"]  # Primary delta metric
 
 
-def benchmark_function(func: Callable[..., T], iterations: int = 100) -> BenchmarkResult:
+def benchmark_function[T](func: Callable[..., T], iterations: int = 100) -> BenchmarkResult:
     """Benchmark a function with statistical analysis.
 
     Args:
