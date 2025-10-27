@@ -17,6 +17,8 @@ try:
 except ImportError:
     _PSUTIL_AVAILABLE = False
 
+__version__ = "0.2.1"
+
 
 # Import batch processing components
 def _import_batch_components():
@@ -2391,6 +2393,7 @@ def process_augmentation_batches(
 
     # Use identity function if no processor provided
     if processor_func is None:
+
         def processor_func(batch):
             return batch
 

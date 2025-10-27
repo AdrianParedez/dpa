@@ -44,6 +44,48 @@ class TestBatchProcessingIntegration:
                 "hash": f"hash_{i:08x}",
             }
 
+    def test_fixed_round_robin_strategy_integration(self):
+        """Test integration with fixed round-robin batching strategy."""
+        # Test that the fixed round-robin strategy works correctly
+        config = BatchConfig(strategy=BatchStrategy.ROUND_ROBIN, batch_size=4)
+        processor = BatchProcessor(BatchStrategy.ROUND_ROBIN, config)
+
+        # Generate test data
+        test_data = list(self.create_test_param_generator(12))
+
+        # Process with round-robin strategy
+        batches = list(processor.process_stream(iter(test_data)))
+
+        # Verify that batches are created correctly
+        assert len(batches) > 0
+
+        # Verify that all items are processed
+        total_items = sum(len(batch) for batch in batches)
+        assert total_items == 12
+
+        # Verify batch sizes are reasonable (should be close to target batch_size)
+        for batch in batches:
+            assert len(batch) > 0
+            assert len(batch) <= config.batch_size
+
+    def test_batch_processing_with_memory_monitoring_integration(self):
+        """Test end-to-end batch processing with memory monitoring."""
+        config = BatchConfig(
+            strategy=BatchStrategy.MEMORY_OPTIMIZED, batch_size=10, max_memory_mb=500
+        )
+        processor = BatchProcessor(BatchStrategy.MEMORY_OPTIMIZED, config)
+
+        # Test with memory monitoring
+        test_data = list(self.create_test_param_generator(50))
+
+        # This should complete without memory limit exceptions
+        batches = list(processor.process_with_memory_monitoring(iter(test_data)))
+
+        # Verify processing completed
+        assert len(batches) > 0
+        total_items = sum(len(batch) for batch in batches)
+        assert total_items == 50
+
     def test_integration_with_existing_streaming_api(self):
         """Test batch processing integration with existing streaming API."""
         # Test with real DPA streaming API

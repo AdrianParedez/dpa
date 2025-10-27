@@ -25,6 +25,38 @@ P = ParamSpec("P")
 T = TypeVar("T")
 
 
+# Safe mathematical operation utilities
+def safe_division(numerator: float, denominator: float, fallback: float = 0.0) -> float:
+    """Perform division with fallback for zero denominator.
+
+    Args:
+        numerator: The numerator value
+        denominator: The denominator value
+        fallback: Value to return when denominator is zero
+
+    Returns:
+        Result of division or fallback value
+    """
+    if denominator == 0:
+        return fallback
+    return numerator / denominator
+
+
+def safe_percentage_change(new_value: float, old_value: float) -> float:
+    """Calculate percentage change with proper zero handling.
+
+    Args:
+        new_value: The new value
+        old_value: The old/baseline value
+
+    Returns:
+        Percentage change or float('inf') for infinite improvement cases
+    """
+    if old_value == 0:
+        return float("inf") if new_value > 0 else 0.0
+    return ((new_value - old_value) / old_value) * 100
+
+
 # Exception Classes
 class BenchmarkError(Exception):
     """Base exception for benchmarking operations."""
@@ -234,7 +266,7 @@ def measure_memory() -> Generator[dict[str, int], None, None]:
         result["delta_mb"] = result["delta_rss_mb"]  # Primary delta metric
 
 
-def benchmark_function[**P, T](func: Callable[P, T], iterations: int = 100) -> BenchmarkResult:
+def benchmark_function(func: Callable[..., T], iterations: int = 100) -> BenchmarkResult:
     """Benchmark a function with statistical analysis.
 
     Args:
@@ -270,7 +302,7 @@ def benchmark_function[**P, T](func: Callable[P, T], iterations: int = 100) -> B
         # Benchmark runs
         for i in range(iterations):
             # Measure CPU usage before operation
-            cpu_before = psutil.cpu_percent(interval=None)
+            cpu_before = psutil.cpu_percent(interval=0.1)
 
             with measure_time() as timer, measure_memory() as memory:
                 try:
@@ -281,7 +313,7 @@ def benchmark_function[**P, T](func: Callable[P, T], iterations: int = 100) -> B
                     ) from e
 
             # Measure CPU usage after operation
-            cpu_after = psutil.cpu_percent(interval=None)
+            cpu_after = psutil.cpu_percent(interval=0.1)
             cpu_usage_samples.append((cpu_before + cpu_after) / 2)
 
             times.append(timer["elapsed_seconds"])
@@ -460,14 +492,11 @@ class PerformanceProfiler:
         """Get summary of all completed profiling operations.
 
         Returns:
-            Dictionary mapping operation names to their latest profile results
+            Dictionary mapping operation names to their aggregated profile results
         """
         summary = {}
         for operation_name, results in self._completed_operations.items():
             if results:
-                # Get the most recent result, but aggregate statistics
-                results[-1]
-
                 # Calculate aggregate statistics across all calls
                 total_time = sum(r.total_time_seconds for r in results)
                 total_calls = sum(r.call_count for r in results)
@@ -559,7 +588,7 @@ class BenchmarkRunner:
 
             for _i in range(self.config.iterations):
                 # Measure CPU before operation
-                cpu_before = psutil.cpu_percent(interval=None) if self.config.measure_cpu else 0.0
+                cpu_before = psutil.cpu_percent(interval=0.1) if self.config.measure_cpu else 0.0
 
                 with measure_time() as timer:
                     if self.config.measure_memory:
@@ -574,7 +603,7 @@ class BenchmarkRunner:
 
                 # Measure CPU after operation
                 if self.config.measure_cpu:
-                    cpu_after = psutil.cpu_percent(interval=None)
+                    cpu_after = psutil.cpu_percent(interval=0.1)
                     cpu_samples.append((cpu_before + cpu_after) / 2)
                 else:
                     cpu_samples.append(0.0)
@@ -639,7 +668,7 @@ class BenchmarkRunner:
 
             for _i in range(self.config.iterations):
                 # Measure CPU before operation
-                cpu_before = psutil.cpu_percent(interval=None) if self.config.measure_cpu else 0.0
+                cpu_before = psutil.cpu_percent(interval=0.1) if self.config.measure_cpu else 0.0
 
                 with measure_time() as timer:
                     if self.config.measure_memory:
@@ -659,7 +688,7 @@ class BenchmarkRunner:
 
                 # Measure CPU after operation
                 if self.config.measure_cpu:
-                    cpu_after = psutil.cpu_percent(interval=None)
+                    cpu_after = psutil.cpu_percent(interval=0.1)
                     cpu_samples.append((cpu_before + cpu_after) / 2)
                 else:
                     cpu_samples.append(0.0)
@@ -732,7 +761,7 @@ class BenchmarkRunner:
 
             for _i in range(self.config.iterations):
                 # Measure CPU before operation
-                cpu_before = psutil.cpu_percent(interval=None) if self.config.measure_cpu else 0.0
+                cpu_before = psutil.cpu_percent(interval=0.1) if self.config.measure_cpu else 0.0
 
                 with measure_time() as timer:
                     if self.config.measure_memory:
@@ -752,7 +781,7 @@ class BenchmarkRunner:
 
                 # Measure CPU after operation
                 if self.config.measure_cpu:
-                    cpu_after = psutil.cpu_percent(interval=None)
+                    cpu_after = psutil.cpu_percent(interval=0.1)
                     cpu_samples.append((cpu_before + cpu_after) / 2)
                 else:
                     cpu_samples.append(0.0)
@@ -801,6 +830,13 @@ class BenchmarkRunner:
             raise ValueError("At least one configuration must be provided")
 
         try:
+            # Validate required keys in configuration dictionaries before processing
+            required_keys = ["name", "type", "num_samples"]
+            for i, config in enumerate(configs):
+                for key in required_keys:
+                    if key not in config:
+                        raise ValueError(f"Configuration {i} is missing required key '{key}'")
+
             results = {}
             baseline_config = configs[0]["name"]
 
@@ -848,48 +884,22 @@ class BenchmarkRunner:
                 if config_name == baseline_config:
                     continue
 
-                # Calculate relative performance changes
-                throughput_change = (
-                    (
-                        (
-                            metrics.throughput_samples_per_second
-                            - baseline_metrics.throughput_samples_per_second
-                        )
-                        / baseline_metrics.throughput_samples_per_second
-                        * 100
-                    )
-                    if baseline_metrics.throughput_samples_per_second > 0
-                    else 0.0
+                # Calculate relative performance changes using safe mathematical operations
+                throughput_change = safe_percentage_change(
+                    metrics.throughput_samples_per_second,
+                    baseline_metrics.throughput_samples_per_second,
                 )
 
-                latency_change = (
-                    (
-                        (metrics.avg_latency_ms - baseline_metrics.avg_latency_ms)
-                        / baseline_metrics.avg_latency_ms
-                        * 100
-                    )
-                    if baseline_metrics.avg_latency_ms > 0
-                    else 0.0
+                latency_change = safe_percentage_change(
+                    metrics.avg_latency_ms, baseline_metrics.avg_latency_ms
                 )
 
-                memory_change = (
-                    (
-                        (metrics.memory_usage_mb - baseline_metrics.memory_usage_mb)
-                        / baseline_metrics.memory_usage_mb
-                        * 100
-                    )
-                    if baseline_metrics.memory_usage_mb > 0
-                    else 0.0
+                memory_change = safe_percentage_change(
+                    metrics.memory_usage_mb, baseline_metrics.memory_usage_mb
                 )
 
-                cpu_change = (
-                    (
-                        (metrics.cpu_usage_percent - baseline_metrics.cpu_usage_percent)
-                        / baseline_metrics.cpu_usage_percent
-                        * 100
-                    )
-                    if baseline_metrics.cpu_usage_percent > 0
-                    else 0.0
+                cpu_change = safe_percentage_change(
+                    metrics.cpu_usage_percent, baseline_metrics.cpu_usage_percent
                 )
 
                 metrics_comparison[config_name] = {

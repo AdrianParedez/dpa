@@ -18,6 +18,23 @@ import psutil
 # It will be imported dynamically when needed
 
 
+# Safe mathematical operation utilities
+def safe_division(numerator: float, denominator: float, fallback: float = 0.0) -> float:
+    """Perform division with fallback for zero denominator.
+
+    Args:
+        numerator: The numerator value
+        denominator: The denominator value
+        fallback: Value to return when denominator is zero
+
+    Returns:
+        Result of division or fallback value
+    """
+    if denominator == 0:
+        return fallback
+    return numerator / denominator
+
+
 class BatchStrategy(Enum):
     """Enumeration of available batch processing strategies."""
 
@@ -59,6 +76,10 @@ class BatchConfig:
 
     def __post_init__(self):
         """Validate batch configuration after initialization."""
+        # Validate batch_size first (before min_batch_size comparison)
+        if self.batch_size is not None and self.batch_size <= 0:
+            raise InvalidBatchConfigError(f"batch_size ({self.batch_size}) must be positive")
+
         if self.batch_size is not None and self.batch_size < self.min_batch_size:
             raise InvalidBatchConfigError(
                 f"batch_size ({self.batch_size}) cannot be less than min_batch_size ({self.min_batch_size})"
@@ -112,17 +133,20 @@ class MemoryInfo:
 class MemoryAwareBatcher:
     """Memory-aware batch size calculator and monitor."""
 
-    def __init__(self, max_memory_mb: int = 1000, min_batch_size: int = 1):
+    def __init__(
+        self, max_memory_mb: int = 1000, min_batch_size: int = 1, adjustment_factor: float = 0.8
+    ):
         """Initialize memory-aware batcher.
 
         Args:
             max_memory_mb: Maximum memory usage allowed in MB
             min_batch_size: Minimum batch size to maintain
+            adjustment_factor: Factor to reduce batch size when memory is high (default 0.8)
         """
         self.max_memory_mb = max_memory_mb
         self.min_batch_size = min_batch_size
         self._safety_margin = 0.1  # 10% safety margin
-        self._adjustment_factor = 0.8  # Reduce batch size by 20% when memory is high
+        self._adjustment_factor = adjustment_factor
 
     def calculate_optimal_batch_size(self, sample_size_bytes: int) -> int:
         """Calculate optimal batch size based on memory constraints.
@@ -133,6 +157,7 @@ class MemoryAwareBatcher:
         Returns:
             Optimal batch size
         """
+        # Add check for sample_size_bytes <= 0 before division
         if sample_size_bytes <= 0:
             return self.min_batch_size
 
@@ -144,12 +169,16 @@ class MemoryAwareBatcher:
             (memory_info.available_mb * (1 - self._safety_margin)) * 1024 * 1024
         )
 
-        # Calculate how many samples can fit in available memory
-        max_samples = int(available_memory_bytes / sample_size_bytes)
+        # Calculate how many samples can fit in available memory using safe division
+        max_samples = int(
+            safe_division(available_memory_bytes, sample_size_bytes, self.min_batch_size)
+        )
 
         # Ensure we don't exceed our configured maximum memory limit
         max_memory_bytes = self.max_memory_mb * 1024 * 1024
-        max_samples_by_limit = int(max_memory_bytes / sample_size_bytes)
+        max_samples_by_limit = int(
+            safe_division(max_memory_bytes, sample_size_bytes, self.min_batch_size)
+        )
 
         # Take the minimum of the two constraints
         optimal_size = min(max_samples, max_samples_by_limit)
@@ -214,6 +243,12 @@ class BatchProcessor:
             strategy: Batch processing strategy to use
             config: Batch processing configuration
         """
+        # Validate strategy parameter during initialization
+        if not isinstance(strategy, BatchStrategy):
+            raise InvalidBatchConfigError(
+                f"strategy must be a BatchStrategy enum, got {type(strategy).__name__}"
+            )
+
         self.strategy = strategy
         self.config = config
         self._memory_batcher = MemoryAwareBatcher(
@@ -247,39 +282,28 @@ class BatchProcessor:
     def _round_robin_batching(
         self, param_generator: Generator
     ) -> Generator[list[dict], None, None]:
-        """Round-robin batching strategy - distribute items across multiple batches.
+        """Round-robin batching strategy - create batches of specified size using round-robin distribution.
 
         Args:
             param_generator: Generator yielding augmentation parameters
 
         Yields:
-            Lists of batched parameters
+            Lists of batched parameters, each containing batch_size items (except possibly the last)
         """
         batch_size = self._current_batch_size
-        batches = [[] for _ in range(batch_size)]
-        batch_index = 0
-        items_collected = 0
+        current_batch = []
 
         for params in param_generator:
-            batches[batch_index % batch_size].append(params)
-            batch_index += 1
-            items_collected += 1
+            current_batch.append(params)
 
-            # When we have filled all batches with at least one item each
-            if items_collected >= batch_size and all(len(batch) > 0 for batch in batches):
-                # Yield the batch with the most items
-                max_batch = max(batches, key=len)
-                if max_batch:
-                    yield max_batch
-                    # Remove yielded items and reset
-                    batches = [[] for _ in range(batch_size)]
-                    batch_index = 0
-                    items_collected = 0
+            # When we reach the target batch size, yield the batch
+            if len(current_batch) >= batch_size:
+                yield current_batch
+                current_batch = []
 
-        # Yield remaining non-empty batches
-        for batch in batches:
-            if batch:
-                yield batch
+        # Yield remaining items if any
+        if current_batch:
+            yield current_batch
 
     def _memory_optimized_batching(
         self, param_generator: Generator
@@ -295,22 +319,23 @@ class BatchProcessor:
         batch = []
 
         for params in param_generator:
-            batch.append(params)
-
-            # Check memory usage periodically
+            # Check memory usage before adding item to batch
             if len(batch) % 10 == 0:  # Check every 10 items
                 memory_usage = self._memory_batcher.monitor_memory_usage()
                 optimal_size = self._memory_batcher.adjust_batch_size(len(batch), memory_usage)
 
-                # If we've reached optimal size or memory is getting tight
+                # If we've reached optimal size or memory is getting tight, yield current batch
                 if len(batch) >= optimal_size or memory_usage.get("percent_used", 0) > 75:
-                    yield batch
-                    batch = []
+                    if batch:  # Only yield if batch is not empty
+                        yield batch
+                        batch = []
 
-            # Safety check - don't let batches grow too large
-            elif len(batch) >= self._current_batch_size * 2:
+            # Safety check before adding - don't let batches grow too large
+            if len(batch) >= self._current_batch_size * 2:
                 yield batch
                 batch = []
+
+            batch.append(params)
 
         # Yield remaining items
         if batch:

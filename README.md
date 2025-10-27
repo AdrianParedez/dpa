@@ -244,6 +244,7 @@ DPA is designed for high-performance scenarios:
 
 ## Releases
 
+- **[v0.2.1](docs/releases/RELEASE_NOTES_v0.2.1.md)** - Critical Bug Fixes & Enhanced Validation
 - **[v0.2.0](docs/releases/RELEASE_NOTES_v0.2.0.md)** - Distributed Training, Batch Processing & Benchmarking
 - **v0.1.0** - Initial Release
 

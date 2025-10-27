@@ -21,6 +21,49 @@ from src.dpa import AugmentationConfig
 class TestDistributedTrainingIntegration:
     """Integration tests for distributed training functionality."""
 
+    def test_cross_module_import_fixes(self):
+        """Test that circular import issues have been resolved."""
+        # This test verifies that we can import and use functions from distributed.py
+        # without encountering circular import errors
+
+        # Test importing distributed functions
+        from src.distributed import (
+            RankAwareSeedGenerator,
+            gen_distributed_augmentation_params,
+        )
+
+        # Test that we can use the functions without import errors
+        generator = RankAwareSeedGenerator(base_seed=42, world_size=4)
+        seed = generator.generate_seed(sample_id=0, rank=0)
+        assert isinstance(seed, str)
+        assert len(seed) == 64
+
+        # Test that distributed parameter generation works
+        params = gen_distributed_augmentation_params(
+            sample_id=0, rank=0, base_seed=42, world_size=4
+        )
+        assert "rotation" in params
+        assert "rank" in params
+        assert params["rank"] == 0
+
+    def test_distributed_error_handling_improvements(self):
+        """Test improved error handling in distributed processing."""
+        from unittest.mock import patch
+
+        # Test that range validation errors are properly logged
+        splitter = DistributedRangeSplitter(total_samples=5, world_size=3)
+
+        # Mock logging to capture error messages
+        with patch("src.distributed.logging.error") as mock_log:
+            # This should pass validation, so no error should be logged
+            result = splitter.validate_ranges()
+            assert result is True
+            mock_log.assert_not_called()
+
+        # Test with invalid configuration that would cause validation to fail
+        # (This is more of a documentation test since our current implementation
+        # doesn't have cases that fail validation)
+
     def test_end_to_end_distributed_parameter_generation(self):
         """Test end-to-end distributed parameter generation across multiple ranks."""
         # Test configuration
@@ -160,7 +203,9 @@ class TestDistributedTrainingIntegration:
         for rank in range(world_size):
             assert len(run1_params[rank]) == len(run2_params[rank])
 
-            for i, (params1, params2) in enumerate(zip(run1_params[rank], run2_params[rank], strict=False)):
+            for i, (params1, params2) in enumerate(
+                zip(run1_params[rank], run2_params[rank], strict=False)
+            ):
                 # All parameters should be identical
                 assert params1 == params2, f"Rank {rank}, sample {i}: parameters differ"
 

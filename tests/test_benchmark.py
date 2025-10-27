@@ -531,6 +531,32 @@ class TestBenchmarkRunner:
         assert metrics1.throughput_samples_per_second > 0
         assert metrics2.throughput_samples_per_second > 0
 
+    def test_compare_configurations_missing_required_keys(self):
+        """Test configuration validation with missing required keys."""
+        config = BenchmarkConfig(iterations=3, warmup_iterations=1)
+        runner = BenchmarkRunner(config)
+
+        # Test missing 'name' key
+        configs = [{"type": "generation", "num_samples": 10}]
+        with pytest.raises(
+            MeasurementError, match="Configuration 0 is missing required key 'name'"
+        ):
+            runner.compare_configurations(configs)
+
+        # Test missing 'type' key
+        configs = [{"name": "test", "num_samples": 10}]
+        with pytest.raises(
+            MeasurementError, match="Configuration 0 is missing required key 'type'"
+        ):
+            runner.compare_configurations(configs)
+
+        # Test missing 'num_samples' key
+        configs = [{"name": "test", "type": "generation"}]
+        with pytest.raises(
+            MeasurementError, match="Configuration 0 is missing required key 'num_samples'"
+        ):
+            runner.compare_configurations(configs)
+
     def test_compare_configurations_basic(self):
         """Test basic configuration comparison functionality (Requirement 3.5)."""
         config = BenchmarkConfig(iterations=3, warmup_iterations=1)
@@ -732,6 +758,58 @@ class TestBenchmarkRunner:
         # CPU usage should be 0 when measurement is disabled
         assert metrics.cpu_usage_percent == 0.0
         assert metrics.throughput_samples_per_second > 0
+
+    def test_percentage_calculation_division_by_zero(self):
+        """Test percentage calculation with zero baseline values."""
+        config = BenchmarkConfig(iterations=2, warmup_iterations=1)
+        runner = BenchmarkRunner(config)
+
+        # Create mock metrics with zero baseline values
+        from src.benchmark import PerformanceMetrics
+
+        baseline_metrics = PerformanceMetrics(
+            throughput_samples_per_second=0.0,  # Zero baseline
+            avg_latency_ms=0.0,  # Zero baseline
+            memory_usage_mb=0.0,  # Zero baseline
+            cpu_usage_percent=0.0,  # Zero baseline
+            total_time_seconds=1.0,
+        )
+
+        comparison_metrics = PerformanceMetrics(
+            throughput_samples_per_second=100.0,
+            avg_latency_ms=10.0,
+            memory_usage_mb=50.0,
+            cpu_usage_percent=25.0,
+            total_time_seconds=1.0,
+        )
+
+        # Test the safe percentage calculation directly
+        from src.benchmark import safe_percentage_change
+
+        # When baseline is zero and new value is positive, should return infinity
+        assert safe_percentage_change(100.0, 0.0) == float("inf")
+
+        # When both are zero, should return 0
+        assert safe_percentage_change(0.0, 0.0) == 0.0
+
+        # Normal case
+        assert safe_percentage_change(110.0, 100.0) == 10.0
+
+    def test_safe_division_utility(self):
+        """Test safe division utility function."""
+        from src.benchmark import safe_division
+
+        # Normal division
+        assert safe_division(10.0, 2.0) == 5.0
+
+        # Division by zero with default fallback
+        assert safe_division(10.0, 0.0) == 0.0
+
+        # Division by zero with custom fallback
+        assert safe_division(10.0, 0.0, fallback=float("inf")) == float("inf")
+
+        # Division by zero with negative fallback
+        assert safe_division(10.0, 0.0, fallback=-1.0) == -1.0
 
 
 if __name__ == "__main__":

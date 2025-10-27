@@ -37,10 +37,28 @@ class TestBatchConfig:
         assert config.max_memory_mb == 1000
         assert config.min_batch_size == 1
 
-    def test_invalid_batch_size(self):
-        """Test invalid batch size configuration."""
-        with pytest.raises(InvalidBatchConfigError):
+    def test_invalid_batch_size_zero(self):
+        """Test invalid batch size configuration with zero value."""
+        with pytest.raises(InvalidBatchConfigError, match="batch_size \\(0\\) must be positive"):
             BatchConfig(strategy=BatchStrategy.SEQUENTIAL, batch_size=0, min_batch_size=1)
+
+    def test_invalid_batch_size_negative(self):
+        """Test invalid batch size configuration with negative value."""
+        with pytest.raises(InvalidBatchConfigError, match="batch_size \\(-5\\) must be positive"):
+            BatchConfig(strategy=BatchStrategy.SEQUENTIAL, batch_size=-5, min_batch_size=1)
+
+    def test_batch_size_less_than_min(self):
+        """Test batch size less than min_batch_size."""
+        with pytest.raises(
+            InvalidBatchConfigError,
+            match="batch_size \\(2\\) cannot be less than min_batch_size \\(5\\)",
+        ):
+            BatchConfig(strategy=BatchStrategy.SEQUENTIAL, batch_size=2, min_batch_size=5)
+
+    def test_batch_size_none_valid(self):
+        """Test that batch_size=None is valid."""
+        config = BatchConfig(strategy=BatchStrategy.SEQUENTIAL, batch_size=None, min_batch_size=1)
+        assert config.batch_size is None
 
     def test_invalid_memory_limit(self):
         """Test invalid memory limit configuration."""
@@ -100,6 +118,24 @@ class TestMemoryAwareBatcher:
         batcher = MemoryAwareBatcher(min_batch_size=5)
         batch_size = batcher.calculate_optimal_batch_size(0)
         assert batch_size == 5
+
+    def test_calculate_optimal_batch_size_negative_sample(self):
+        """Test optimal batch size with negative sample size."""
+        batcher = MemoryAwareBatcher(min_batch_size=3)
+        batch_size = batcher.calculate_optimal_batch_size(-100)
+        assert batch_size == 3
+
+    def test_calculate_optimal_batch_size_division_by_zero_protection(self):
+        """Test division-by-zero protection in calculate_optimal_batch_size."""
+        batcher = MemoryAwareBatcher(min_batch_size=10)
+
+        # Test with zero sample size
+        batch_size = batcher.calculate_optimal_batch_size(0)
+        assert batch_size == 10
+
+        # Test with very small sample size that could cause issues
+        batch_size = batcher.calculate_optimal_batch_size(1)  # 1 byte
+        assert batch_size >= 10  # Should at least return min_batch_size
 
     @patch("src.batch.MemoryInfo.current")
     def test_monitor_memory_usage(self, mock_memory):
@@ -217,6 +253,14 @@ class TestBatchProcessor:
         # Performance history should be recorded
         assert len(processor._performance_history) > 0
 
+    def test_invalid_strategy_validation_at_init(self):
+        """Test strategy validation during BatchProcessor initialization."""
+        config = BatchConfig(strategy=BatchStrategy.SEQUENTIAL, batch_size=5)
+
+        # Test with invalid strategy type (not BatchStrategy enum)
+        with pytest.raises(InvalidBatchConfigError, match="strategy must be a BatchStrategy enum"):
+            BatchProcessor("invalid_strategy", config)
+
     def test_unknown_strategy_error(self):
         """Test error handling for unknown batch strategy."""
         config = BatchConfig(strategy=BatchStrategy.SEQUENTIAL, batch_size=5)
@@ -282,6 +326,44 @@ class TestUtilityFunctions:
         with pytest.raises(MemoryLimitExceededError):
             with memory_monitor(max_memory_mb=500):
                 pass
+
+
+class TestSafeMathematicalOperations:
+    """Test safe mathematical operation utilities."""
+
+    def test_safe_division_normal_cases(self):
+        """Test safe division with normal cases."""
+        from src.batch import safe_division
+
+        # Normal division
+        assert safe_division(10.0, 2.0) == 5.0
+        assert safe_division(15.0, 3.0) == 5.0
+        assert safe_division(7.0, 2.0) == 3.5
+
+    def test_safe_division_zero_denominator(self):
+        """Test safe division with zero denominator."""
+        from src.batch import safe_division
+
+        # Division by zero with default fallback
+        assert safe_division(10.0, 0.0) == 0.0
+        assert safe_division(0.0, 0.0) == 0.0
+
+        # Division by zero with custom fallback
+        assert safe_division(10.0, 0.0, fallback=float("inf")) == float("inf")
+        assert safe_division(10.0, 0.0, fallback=-1.0) == -1.0
+
+    def test_safe_division_edge_cases(self):
+        """Test safe division with edge cases."""
+        from src.batch import safe_division
+
+        # Very small denominator
+        result = safe_division(1.0, 1e-10)
+        assert result == 1e10
+
+        # Negative values
+        assert safe_division(-10.0, 2.0) == -5.0
+        assert safe_division(10.0, -2.0) == -5.0
+        assert safe_division(-10.0, -2.0) == 5.0
 
 
 class TestBatchMetrics:

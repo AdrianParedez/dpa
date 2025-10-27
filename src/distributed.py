@@ -8,11 +8,12 @@ without data duplication across ranks.
 """
 
 import hashlib
+import logging
 from collections.abc import Generator
 from dataclasses import dataclass
 from typing import Any
 
-from .dpa import AugmentationConfig, fib
+from .dpa import AugmentationConfig
 
 
 class DistributedError(Exception):
@@ -103,6 +104,9 @@ class RankAwareSeedGenerator:
             raise ValueError("augmentation_depth must be >= 1")
 
         try:
+            # Import fib function locally to avoid circular imports
+            from .dpa import fib
+
             # Combine base_seed, rank, and sample_id for unique seed per rank
             combined_seed = f"{self.base_seed}:{rank}:{sample_id}"
             prev_hash = hashlib.sha256(combined_seed.encode()).hexdigest()
@@ -260,7 +264,13 @@ class DistributedRangeSplitter:
 
             # Handle edge case: no samples
             if self.total_samples == 0:
-                return all(start == 0 and end == 0 for start, end in ranges)
+                valid = all(start == 0 and end == 0 for start, end in ranges)
+                if not valid:
+                    logging.error(
+                        f"Range validation failed: Expected all ranges to be (0,0) for zero samples, "
+                        f"but got ranges: {ranges}"
+                    )
+                return valid
 
             # Check for gaps and overlaps
             ranges.sort(key=lambda x: x[0])  # Sort by start_id
@@ -268,26 +278,48 @@ class DistributedRangeSplitter:
             expected_start = 0
             total_covered = 0
 
-            for start_id, end_id in ranges:
+            for i, (start_id, end_id) in enumerate(ranges):
                 # Skip empty ranges (for excess ranks)
                 if start_id == end_id:
                     continue
 
                 # Check for gaps
                 if start_id != expected_start:
+                    logging.error(
+                        f"Range validation failed: Gap detected at range {i}. "
+                        f"Expected start_id {expected_start}, but got {start_id}. "
+                        f"Ranges: {ranges}"
+                    )
                     return False
 
                 # Check for valid range
                 if start_id >= end_id:
+                    logging.error(
+                        f"Range validation failed: Invalid range at index {i}. "
+                        f"start_id ({start_id}) >= end_id ({end_id}). "
+                        f"Ranges: {ranges}"
+                    )
                     return False
 
                 total_covered += end_id - start_id
                 expected_start = end_id
 
             # Check that we covered exactly all samples
-            return total_covered == self.total_samples and expected_start == self.total_samples
+            valid = total_covered == self.total_samples and expected_start == self.total_samples
+            if not valid:
+                logging.error(
+                    f"Range validation failed: Coverage mismatch. "
+                    f"Total covered: {total_covered}, Expected: {self.total_samples}, "
+                    f"Final end position: {expected_start}. "
+                    f"Ranges: {ranges}"
+                )
+            return valid
 
-        except Exception:
+        except Exception as e:
+            logging.error(
+                f"Range validation failed with exception: {e}. "
+                f"total_samples: {self.total_samples}, world_size: {self.world_size}"
+            )
             return False
 
     def get_rank_for_sample(self, sample_id: int) -> int:
@@ -437,7 +469,7 @@ def stream_distributed_augmentation_chain(
                     if verbose and actual_samples <= 10:
                         print(
                             f"Rank {rank} Sample({sample_id}) -> "
-                            f"rotation={params['rotation']:.2f}° "
+                            f"rotation={params['rotation']:.2f}\u00b0 "
                             f"brightness={params['brightness']:.2f} "
                             f"hash={params['hash'][:8]}..."
                         )
@@ -465,7 +497,7 @@ def stream_distributed_augmentation_chain(
                     if verbose and actual_samples <= 10:
                         print(
                             f"Rank {rank} Sample({sample_id}) -> "
-                            f"rotation={params['rotation']:.2f}° "
+                            f"rotation={params['rotation']:.2f}\u00b0 "
                             f"brightness={params['brightness']:.2f} "
                             f"hash={params['hash'][:8]}..."
                         )
@@ -587,7 +619,7 @@ def stream_distributed_augmentation_range(
                     if verbose and num_samples <= 10:
                         print(
                             f"Rank {rank} Sample({sample_id}) -> "
-                            f"rotation={params['rotation']:.2f}° "
+                            f"rotation={params['rotation']:.2f}\u00b0 "
                             f"brightness={params['brightness']:.2f} "
                             f"hash={params['hash'][:8]}..."
                         )
@@ -615,7 +647,7 @@ def stream_distributed_augmentation_range(
                     if verbose and num_samples <= 10:
                         print(
                             f"Rank {rank} Sample({sample_id}) -> "
-                            f"rotation={params['rotation']:.2f}° "
+                            f"rotation={params['rotation']:.2f}\u00b0 "
                             f"brightness={params['brightness']:.2f} "
                             f"hash={params['hash'][:8]}..."
                         )

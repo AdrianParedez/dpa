@@ -1757,6 +1757,7 @@ class TestStreamingComprehensive:
 
         try:
             import importlib.util
+
             psutil_available = importlib.util.find_spec("psutil") is not None
         except ImportError:
             psutil_available = False

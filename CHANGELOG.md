@@ -5,6 +5,34 @@ All notable changes to the DPA (Deterministic Procedural Augmentation) project w
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.1] - 2025-10-27
+
+### Fixed
+
+#### Critical Bug Fixes
+- **Input Validation**: Fixed BatchConfig validation to properly handle zero, negative, and invalid batch_size values
+- **Mathematical Safety**: Added safe division operations to prevent division-by-zero errors in MemoryAwareBatcher and BenchmarkRunner
+- **Strategy Validation**: Enhanced BatchProcessor to validate strategy types during initialization
+- **Configuration Validation**: Improved BenchmarkRunner to validate required configuration keys before processing
+- **Error Handling**: Enhanced error messages and exception handling across all modules
+
+#### Test Coverage Improvements
+- **Comprehensive Test Suite**: Added 15+ new unit tests covering input validation edge cases
+- **Mathematical Safety Tests**: Added tests for division-by-zero scenarios and percentage calculations
+- **Integration Tests**: Added cross-module interaction tests to verify import fixes
+- **Edge Case Coverage**: Enhanced test coverage for boundary conditions and error scenarios
+
+#### Robustness Enhancements
+- **Safe Mathematical Operations**: Implemented safe_division and safe_percentage_change utilities
+- **Graceful Error Handling**: Improved error handling with informative messages
+- **Validation Improvements**: Enhanced input validation across all configuration classes
+- **Memory Safety**: Added protection against memory calculation errors
+
+### Enhanced
+- **Error Messages**: More descriptive error messages for configuration validation failures
+- **Test Reliability**: Improved test stability and coverage for edge cases
+- **Code Robustness**: Enhanced error handling and input validation throughout the codebase
+
 ## [0.2.0] - 2025-10-26
 
 > **Detailed Release Notes**: [docs/releases/RELEASE_NOTES_v0.2.0.md](docs/releases/RELEASE_NOTES_v0.2.0.md)
